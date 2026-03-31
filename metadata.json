@@ -1,0 +1,5 @@
+{
+  "name": "Smart City Issue Reporter",
+  "description": "A civic-tech platform for citizens to report infrastructure issues and authorities to manage them.",
+  "requestFramePermissions": ["geolocation"]
+}
