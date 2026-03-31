@@ -32,7 +32,7 @@ const issueSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "in-progress", "resolved"],
+      enum: ["pending", "in-progress", "resolved", "rejected"],
       default: "pending",
     },
     votes: {

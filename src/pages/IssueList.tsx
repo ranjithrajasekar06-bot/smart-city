@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
-import { MapPin, ThumbsUp, MessageSquare, Filter, Search, ChevronRight, Clock, AlertCircle, CheckCircle } from "lucide-react";
+import { MapPin, ThumbsUp, MessageSquare, Filter, Search, ChevronRight, Clock, AlertCircle, CheckCircle, ArrowRight } from "lucide-react";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 
 interface Issue {
   _id: string;
@@ -10,7 +11,7 @@ interface Issue {
   description: string;
   category: string;
   image_url: string;
-  status: "pending" | "in-progress" | "resolved";
+  status: "pending" | "in-progress" | "resolved" | "rejected";
   votes: number;
   createdAt: string;
   user_id?: {
@@ -19,6 +20,7 @@ interface Issue {
 }
 
 const IssueList: React.FC = () => {
+  const { t } = useTranslation();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({
@@ -42,14 +44,14 @@ const IssueList: React.FC = () => {
         setIssues([]);
       }
     } catch (error: any) {
-      if (error.isStarting && retryCount < 3) {
-        console.log(`IssueList: Server starting, retrying in 2s (attempt ${retryCount + 1})...`);
-        setTimeout(() => fetchIssues(retryCount + 1), 2000);
+      if (error.isStarting && retryCount < 5) {
+        console.log(`IssueList: Server starting, retrying in 3s (attempt ${retryCount + 1})...`);
+        setTimeout(() => fetchIssues(retryCount + 1), 3000);
         return;
       }
       console.error("IssueList: Error fetching issues:", error);
     } finally {
-      if (!loading) setLoading(false); // Only set to false if we're not retrying
+      setLoading(false);
     }
   };
 
@@ -63,21 +65,28 @@ const IssueList: React.FC = () => {
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
             <Clock className="h-3 w-3 mr-1" />
-            Pending
+            {t('issues.status.pending')}
           </span>
         );
       case "in-progress":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             <AlertCircle className="h-3 w-3 mr-1" />
-            In Progress
+            {t('issues.status.in-progress')}
           </span>
         );
       case "resolved":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Resolved
+            {t('issues.status.resolved')}
+          </span>
+        );
+      case "rejected":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            {t('issues.status.rejected')}
           </span>
         );
       default:
@@ -89,21 +98,21 @@ const IssueList: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Community Issues</h1>
-          <p className="text-gray-500 mt-1">View and support infrastructure reports in your area.</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('issues.title')}</h1>
+          <p className="text-gray-500 mt-1">{t('issues.subtitle')}</p>
         </div>
         <Link
           to="/report"
           className="mt-4 md:mt-0 bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors inline-flex items-center justify-center"
         >
-          Report New Issue
+          {t('issues.report_new')}
         </Link>
       </div>
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-8 flex flex-wrap gap-4">
         <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Category</label>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t('issues.category_label')}</label>
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <select
@@ -111,40 +120,41 @@ const IssueList: React.FC = () => {
               onChange={(e) => setFilter({ ...filter, category: e.target.value })}
               className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
             >
-              <option value="">All Categories</option>
-              <option value="pothole">Potholes</option>
-              <option value="garbage">Garbage</option>
-              <option value="streetlight">Streetlights</option>
-              <option value="water">Water/Sewage</option>
-              <option value="other">Other</option>
+              <option value="">{t('issues.all_categories')}</option>
+              <option value="pothole">{t('issues.potholes')}</option>
+              <option value="garbage">{t('issues.garbage')}</option>
+              <option value="streetlight">{t('issues.streetlights')}</option>
+              <option value="water">{t('issues.water')}</option>
+              <option value="other">{t('issues.other')}</option>
             </select>
           </div>
         </div>
 
         <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Status</label>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t('issues.status_label')}</label>
           <select
             value={filter.status}
             onChange={(e) => setFilter({ ...filter, status: e.target.value })}
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           >
-            <option value="">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="in-progress">In Progress</option>
-            <option value="resolved">Resolved</option>
+            <option value="">{t('issues.status.all')}</option>
+            <option value="pending">{t('issues.status.pending')}</option>
+            <option value="in-progress">{t('issues.status.in-progress')}</option>
+            <option value="resolved">{t('issues.status.resolved')}</option>
+            <option value="rejected">{t('issues.status.rejected')}</option>
           </select>
         </div>
 
         <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Sort By</label>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t('issues.sort_label')}</label>
           <select
             value={filter.sort}
             onChange={(e) => setFilter({ ...filter, sort: e.target.value })}
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           >
-            <option value="latest">Latest First</option>
-            <option value="votes">Most Voted</option>
-            <option value="priority">Priority</option>
+            <option value="latest">{t('issues.sort.latest')}</option>
+            <option value="votes">{t('issues.sort.votes')}</option>
+            <option value="priority">{t('issues.sort.priority')}</option>
           </select>
         </div>
       </div>
@@ -156,11 +166,34 @@ const IssueList: React.FC = () => {
           ))}
         </div>
       ) : !Array.isArray(issues) || issues.length === 0 ? (
-        <div className="text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-          <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900">No issues found</h3>
-          <p className="text-gray-500">Try adjusting your filters or report a new issue.</p>
-        </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-3xl p-16 text-center shadow-sm border border-gray-100 max-w-2xl mx-auto"
+        >
+          <div className="bg-blue-50 h-24 w-24 rounded-full flex items-center justify-center mx-auto mb-8">
+            <AlertCircle className="h-12 w-12 text-blue-600" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">{t('issues.no_issues')}</h2>
+          <p className="text-gray-500 text-lg mb-10 leading-relaxed">
+            {t('issues.no_issues_desc')}
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link 
+              to="/report" 
+              className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center"
+            >
+              {t('issues.report_new')}
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Link>
+            <button 
+              onClick={() => setFilter({ status: "", category: "", sort: "latest" })}
+              className="text-gray-600 font-bold hover:text-gray-900 px-8 py-4"
+            >
+              {t('issues.clear_filters')}
+            </button>
+          </div>
+        </motion.div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array.isArray(issues) && issues.map((issue) => (
@@ -182,7 +215,7 @@ const IssueList: React.FC = () => {
                 </div>
                 <div className="absolute bottom-3 left-3">
                   <span className="bg-black/50 backdrop-blur-sm text-white text-[10px] uppercase tracking-widest px-2 py-1 rounded font-bold">
-                    {issue.category}
+                    {t(`issues.${issue.category}s`)}
                   </span>
                 </div>
               </div>
@@ -200,14 +233,14 @@ const IssueList: React.FC = () => {
                       {issue.votes}
                     </div>
                     <div className="text-xs text-gray-400">
-                      by {issue.user_id?.name || "Anonymous"}
+                      {t('issues.by')} {issue.user_id?.name || t('issues.anonymous')}
                     </div>
                   </div>
                   <Link
                     to={`/issues/${issue._id}`}
                     className="text-blue-600 hover:text-blue-700 text-sm font-semibold flex items-center"
                   >
-                    Details
+                    {t('issues.details')}
                     <ChevronRight className="h-4 w-4 ml-0.5" />
                   </Link>
                 </div>

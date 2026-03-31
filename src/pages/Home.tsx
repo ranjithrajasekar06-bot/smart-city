@@ -2,8 +2,11 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { MapPin, Shield, Users, ArrowRight, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 
 const Home: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
     <div className="bg-white">
       {/* Hero Section */}
@@ -20,24 +23,24 @@ const Home: React.FC = () => {
                   Civic Tech for Better Cities
                 </span>
                 <h1 className="mt-4 text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-                  Report Issues, <span className="text-blue-600">Improve Your City</span>
+                  {t('home.title')}
                 </h1>
                 <p className="mt-6 text-lg text-gray-500 sm:text-xl">
-                  A community-driven platform to report infrastructure issues like potholes, broken streetlights, and garbage. Connect directly with city authorities to get them resolved.
+                  {t('home.subtitle')}
                 </p>
                 <div className="mt-10 sm:flex sm:justify-center lg:justify-start space-x-4">
                   <Link
                     to="/report"
                     className="flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10 transition-colors"
                   >
-                    Report an Issue
+                    {t('home.get_started')}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                   <Link
                     to="/issues"
                     className="flex items-center justify-center px-8 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 md:py-4 md:text-lg md:px-10 transition-colors"
                   >
-                    View Issues
+                    {t('home.view_issues')}
                   </Link>
                 </div>
               </motion.div>
@@ -65,9 +68,9 @@ const Home: React.FC = () => {
       <div className="py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-base font-semibold text-blue-600 tracking-wide uppercase">How it works</h2>
+            <h2 className="text-base font-semibold text-blue-600 tracking-wide uppercase">{t('home.how_it_works')}</h2>
             <p className="mt-2 text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              Building a smarter city together
+              {t('home.building_smarter')}
             </p>
           </div>
 
@@ -76,9 +79,9 @@ const Home: React.FC = () => {
               <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mb-6">
                 <MapPin className="h-8 w-8" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900">Spot & Pin</h3>
+              <h3 className="text-xl font-bold text-gray-900">{t('home.spot_title')}</h3>
               <p className="mt-4 text-gray-500">
-                See an issue? Take a photo and pin the exact location on our interactive map.
+                {t('home.spot_desc')}
               </p>
             </div>
 
@@ -86,9 +89,9 @@ const Home: React.FC = () => {
               <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mb-6">
                 <Users className="h-8 w-8" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900">Community Support</h3>
+              <h3 className="text-xl font-bold text-gray-900">{t('home.community_title')}</h3>
               <p className="mt-4 text-gray-500">
-                Upvote issues reported by others to help authorities prioritize the most urgent problems.
+                {t('home.community_desc')}
               </p>
             </div>
 
@@ -96,9 +99,9 @@ const Home: React.FC = () => {
               <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mb-6">
                 <Shield className="h-8 w-8" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900">Direct Action</h3>
+              <h3 className="text-xl font-bold text-gray-900">{t('home.action_title')}</h3>
               <p className="mt-4 text-gray-500">
-                Authorities track and update the status of reports from "Pending" to "Resolved".
+                {t('home.action_desc')}
               </p>
             </div>
           </div>
@@ -112,22 +115,22 @@ const Home: React.FC = () => {
             <div className="flex items-center space-x-4 p-6 rounded-xl bg-yellow-50 border border-yellow-100">
               <Clock className="h-10 w-10 text-yellow-600" />
               <div>
-                <h4 className="font-bold text-yellow-900">Pending</h4>
-                <p className="text-sm text-yellow-700">Issue reported and awaiting review.</p>
+                <h4 className="font-bold text-yellow-900">{t('issues.status.pending')}</h4>
+                <p className="text-sm text-yellow-700">{t('home.status_pending_desc')}</p>
               </div>
             </div>
             <div className="flex items-center space-x-4 p-6 rounded-xl bg-blue-50 border border-blue-100">
               <AlertCircle className="h-10 w-10 text-blue-600" />
               <div>
-                <h4 className="font-bold text-blue-900">In Progress</h4>
-                <p className="text-sm text-blue-700">Work has started to fix the issue.</p>
+                <h4 className="font-bold text-blue-900">{t('issues.status.in-progress')}</h4>
+                <p className="text-sm text-blue-700">{t('home.status_progress_desc')}</p>
               </div>
             </div>
             <div className="flex items-center space-x-4 p-6 rounded-xl bg-green-50 border border-green-100">
               <CheckCircle className="h-10 w-10 text-green-600" />
               <div>
-                <h4 className="font-bold text-green-900">Resolved</h4>
-                <p className="text-sm text-green-700">The issue has been successfully fixed.</p>
+                <h4 className="font-bold text-green-900">{t('issues.status.resolved')}</h4>
+                <p className="text-sm text-green-700">{t('home.status_resolved_desc')}</p>
               </div>
             </div>
           </div>

@@ -195,6 +195,7 @@ export const getAnalytics = async (req: Request, res: Response) => {
     const resolvedIssues = await Issue.countDocuments({ status: "resolved" });
     const pendingIssues = await Issue.countDocuments({ status: "pending" });
     const inProgressIssues = await Issue.countDocuments({ status: "in-progress" });
+    const rejectedIssues = await Issue.countDocuments({ status: "rejected" });
 
     const categoryStats = await Issue.aggregate([
       { $group: { _id: "$category", count: { $sum: 1 } } },
@@ -205,6 +206,7 @@ export const getAnalytics = async (req: Request, res: Response) => {
       resolvedIssues,
       pendingIssues,
       inProgressIssues,
+      rejectedIssues,
       categoryStats,
     });
   } catch (error) {

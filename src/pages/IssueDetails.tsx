@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import { useAuth } from "../context/AuthContext";
-import { ThumbsUp, MapPin, Calendar, User, Clock, AlertCircle, CheckCircle, ArrowLeft, Trash2 } from "lucide-react";
+import { ThumbsUp, MapPin, Calendar, User, Clock, AlertCircle, CheckCircle, ArrowLeft, Trash2, CheckCircle2, TrendingUp, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Modal from "../components/Modal";
 import Toast, { ToastType } from "../components/Toast";
@@ -35,11 +35,16 @@ const IssueDetails: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const fetchIssue = async () => {
+  const fetchIssue = async (retryCount = 0) => {
     try {
       const { data } = await api.get(`/issues/${id}`);
       setIssue(data);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.isStarting && retryCount < 5) {
+        console.log(`IssueDetails: Server starting, retrying in 3s (attempt ${retryCount + 1})...`);
+        setTimeout(() => fetchIssue(retryCount + 1), 3000);
+        return;
+      }
       console.error("Error fetching issue:", error);
       setError("Could not find the requested issue.");
     } finally {
@@ -192,32 +197,70 @@ const IssueDetails: React.FC = () => {
 
           {/* Admin Controls */}
           {user?.role === "admin" && (
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Authority Controls</h3>
-              <div className="flex flex-wrap gap-3">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 overflow-hidden relative">
+              <div className="absolute top-0 right-0 p-4">
+                <div className="bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded">
+                  Admin Only
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                <CheckCircle2 className="h-5 w-5 mr-2 text-blue-600" />
+                Authority Controls
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
                   onClick={() => handleStatusUpdate("pending")}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    issue.status === "pending" ? "bg-yellow-100 text-yellow-800 border-2 border-yellow-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  className={`flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold transition-all ${
+                    issue.status === "pending" 
+                      ? "bg-yellow-100 text-yellow-800 ring-2 ring-yellow-200" 
+                      : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                   }`}
                 >
-                  Set Pending
+                  <Clock className="h-5 w-5" />
+                  <span>Set Pending</span>
                 </button>
                 <button
                   onClick={() => handleStatusUpdate("in-progress")}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    issue.status === "in-progress" ? "bg-blue-100 text-blue-800 border-2 border-blue-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  className={`flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold transition-all ${
+                    issue.status === "in-progress" 
+                      ? "bg-blue-100 text-blue-800 ring-2 ring-blue-200" 
+                      : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                   }`}
                 >
-                  Set In Progress
+                  <TrendingUp className="h-5 w-5" />
+                  <span>Set In Progress</span>
                 </button>
                 <button
                   onClick={() => handleStatusUpdate("resolved")}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    issue.status === "resolved" ? "bg-green-100 text-green-800 border-2 border-green-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  className={`flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold transition-all ${
+                    issue.status === "resolved" 
+                      ? "bg-green-100 text-green-800 ring-2 ring-green-200" 
+                      : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                   }`}
                 >
-                  Set Resolved
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span>Set Resolved</span>
+                </button>
+                <button
+                  onClick={() => handleStatusUpdate("rejected")}
+                  className={`flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold transition-all ${
+                    issue.status === "rejected" 
+                      ? "bg-red-100 text-red-800 ring-2 ring-red-200" 
+                      : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <AlertTriangle className="h-5 w-5" />
+                  <span>Reject Issue</span>
+                </button>
+              </div>
+              
+              <div className="mt-8 pt-8 border-t border-gray-100">
+                <button
+                  onClick={handleDelete}
+                  className="w-full flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold text-red-600 hover:bg-red-50 transition-all border border-red-100"
+                >
+                  <Trash2 className="h-5 w-5" />
+                  <span>Delete Permanently</span>
                 </button>
               </div>
             </div>

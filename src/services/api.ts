@@ -40,13 +40,12 @@ api.interceptors.request.use(
 // Add a response interceptor to handle 401 errors (token expired) and "Starting Server" page
 api.interceptors.response.use(
   (response) => {
-    // Detect AI Studio "Starting Server" page which is returned as HTML
+    // Detect AI Studio "Starting Server" page which is returned as HTML (200 OK)
     if (
       typeof response.data === "string" &&
       response.data.includes("Please wait while your application starts...")
     ) {
-      console.warn("API: Detected 'Starting Server' page. Retrying in 2 seconds...");
-      // Throw an error that can be caught or handled for retry
+      console.warn("API: Detected 'Starting Server' page in successful response. Retrying...");
       const error = new Error("Server is starting up");
       (error as any).isStarting = true;
       return Promise.reject(error);
@@ -54,11 +53,26 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    // Handle 401 errors
     if (error.response && error.response.status === 401) {
       localStorage.removeItem("user");
-      // Optional: redirect to login
-      // window.location.href = "/login";
     }
+
+    // Detect AI Studio "Starting Server" page in error response (e.g., 502, 503)
+    const isStartingHtml = 
+      error.response && 
+      typeof error.response.data === "string" && 
+      error.response.data.includes("Please wait while your application starts...");
+    
+    const isGatewayError = error.response && (error.response.status === 502 || error.response.status === 503);
+
+    if (isStartingHtml || isGatewayError) {
+      console.warn(`API: Detected server startup state (${error.response?.status}). Retrying...`);
+      const startupError = new Error("Server is starting up");
+      (startupError as any).isStarting = true;
+      return Promise.reject(startupError);
+    }
+
     return Promise.reject(error);
   }
 );
