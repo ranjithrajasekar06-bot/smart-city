@@ -3,8 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "react-i18next";
 import { ThumbsUp, MapPin, Calendar, User, Clock, AlertCircle, CheckCircle, ArrowLeft, Trash2, CheckCircle2, TrendingUp, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { toast } from "sonner";
 import Modal from "../components/Modal";
 import Toast, { ToastType } from "../components/Toast";
 
@@ -16,15 +18,19 @@ interface Issue {
   image_url: string;
   latitude: number;
   longitude: number;
-  status: "pending" | "in-progress" | "resolved";
+  status: "pending" | "in-progress" | "resolved" | "rejected";
   votes: number;
   createdAt: string;
+  user_address: string;
+  issue_location: string;
+  pin_code: string;
   user_id?: {
     name: string;
   };
 }
 
 const IssueDetails: React.FC = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const [issue, setIssue] = useState<Issue | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,21 +41,25 @@ const IssueDetails: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const fetchIssue = async (retryCount = 0) => {
-    try {
-      const { data } = await api.get(`/issues/${id}`);
-      setIssue(data);
-    } catch (error: any) {
-      if (error.isStarting && retryCount < 5) {
-        console.log(`IssueDetails: Server starting, retrying in 3s (attempt ${retryCount + 1})...`);
-        setTimeout(() => fetchIssue(retryCount + 1), 3000);
-        return;
+  const fetchIssue = async (retryCount = 10) => {
+    setLoading(true);
+    const attemptFetch = async (retries: number): Promise<void> => {
+      try {
+        const { data } = await api.get(`/issues/${id}`);
+        setIssue(data);
+      } catch (error: any) {
+        if (error.isStarting && retries > 0) {
+          console.log(`IssueDetails: Server starting, retrying in 5s... (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          return attemptFetch(retries - 1);
+        }
+        console.error("Error fetching issue:", error);
+        setError(t('details.error_fetch'));
       }
-      console.error("Error fetching issue:", error);
-      setError("Could not find the requested issue.");
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    await attemptFetch(retryCount);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -63,16 +73,17 @@ const IssueDetails: React.FC = () => {
 
   const handleVote = async () => {
     if (!user) {
+      toast.error(t('auth.login_required_vote') || "Please login to vote");
       return navigate("/login");
     }
 
     setVoting(true);
     try {
       await api.post(`/issues/${id}/vote`);
-      fetchIssue();
-      showToast("Vote recorded successfully!");
+      setIssue(prev => prev ? { ...prev, votes: prev.votes + 1 } : null);
+      toast.success(t('details.vote_success') || "Vote added successfully!");
     } catch (err: any) {
-      showToast(err.response?.data?.message || "Failed to vote", "error");
+      toast.error(err.response?.data?.message || "Failed to vote");
     } finally {
       setVoting(false);
     }
@@ -91,7 +102,7 @@ const IssueDetails: React.FC = () => {
     try {
       await api.put(`/issues/${id}/status`, { status: newStatus });
       fetchIssue();
-      showToast(`Status updated to ${newStatus}`);
+      showToast(t('details.status_updated', { status: t(`issues.status.${newStatus}`) }));
     } catch (err: any) {
       showToast(err.response?.data?.message || "Failed to update status", "error");
     }
@@ -108,9 +119,9 @@ const IssueDetails: React.FC = () => {
   if (error || !issue) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        <h2 className="text-2xl font-bold text-gray-900">{error || "Issue not found"}</h2>
+        <h2 className="text-2xl font-bold text-gray-900">{error || t('details.not_found')}</h2>
         <button onClick={() => navigate("/issues")} className="mt-4 text-blue-600 font-medium">
-          Back to Issues
+          {t('details.back')}
         </button>
       </div>
     );
@@ -123,7 +134,7 @@ const IssueDetails: React.FC = () => {
         className="flex items-center text-gray-500 hover:text-gray-700 mb-6 transition-colors"
       >
         <ArrowLeft className="h-4 w-4 mr-1" />
-        Back
+        {t('details.back')}
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -139,7 +150,7 @@ const IssueDetails: React.FC = () => {
               />
               <div className="absolute top-4 left-4">
                 <span className="bg-black/60 backdrop-blur-md text-white text-xs uppercase tracking-widest px-3 py-1.5 rounded-lg font-bold">
-                  {issue.category}
+                  {t(`issues.category.${issue.category}`, { defaultValue: issue.category })}
                 </span>
               </div>
             </div>
@@ -154,14 +165,14 @@ const IssueDetails: React.FC = () => {
                     className="flex items-center space-x-2 bg-blue-50 text-blue-600 px-6 py-2.5 rounded-xl font-bold hover:bg-blue-100 transition-colors disabled:opacity-50"
                   >
                     <ThumbsUp className={`h-5 w-5 ${voting ? "animate-bounce" : ""}`} />
-                    <span>{issue.votes} Votes</span>
+                    <span>{issue.votes} {t('details.votes')}</span>
                   </button>
 
                   {user?.role === "admin" && (
                     <button
                       onClick={() => setIsDeleteModalOpen(true)}
                       className="p-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
-                      title="Delete Issue"
+                      title={t('details.delete')}
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -172,7 +183,7 @@ const IssueDetails: React.FC = () => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                 <div className="flex items-center text-gray-500 text-sm">
                   <User className="h-4 w-4 mr-2 text-gray-400" />
-                  <span>{issue.user_id?.name || "Anonymous"}</span>
+                  <span>{issue.user_id?.name || t('issues.anonymous')}</span>
                 </div>
                 <div className="flex items-center text-gray-500 text-sm">
                   <Calendar className="h-4 w-4 mr-2 text-gray-400" />
@@ -180,17 +191,29 @@ const IssueDetails: React.FC = () => {
                 </div>
                 <div className="flex items-center text-gray-500 text-sm">
                   <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                  <span>Location Pinned</span>
+                  <span>{t('details.location')}</span>
                 </div>
                 <div className="flex items-center text-gray-500 text-sm">
                   <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                  <span className="capitalize">{issue.status}</span>
+                  <span className="capitalize">{t(`issues.status.${issue.status}`)}</span>
                 </div>
               </div>
 
-              <div className="prose prose-blue max-w-none">
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Description</h3>
+              <div className="prose prose-blue max-w-none mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{t('details.description')}</h3>
                 <p className="text-gray-600 leading-relaxed">{issue.description}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Issue Location</h4>
+                  <p className="text-gray-900 font-medium">{issue.issue_location}</p>
+                  <p className="text-sm text-gray-500 mt-1">Pin Code: {issue.pin_code}</p>
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Reporter Address</h4>
+                  <p className="text-gray-700 text-sm italic">{issue.user_address}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -200,12 +223,12 @@ const IssueDetails: React.FC = () => {
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 overflow-hidden relative">
               <div className="absolute top-0 right-0 p-4">
                 <div className="bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded">
-                  Admin Only
+                  {t('details.admin_only')}
                 </div>
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
                 <CheckCircle2 className="h-5 w-5 mr-2 text-blue-600" />
-                Authority Controls
+                {t('details.admin_controls')}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
@@ -217,7 +240,7 @@ const IssueDetails: React.FC = () => {
                   }`}
                 >
                   <Clock className="h-5 w-5" />
-                  <span>Set Pending</span>
+                  <span>{t('details.set_pending')}</span>
                 </button>
                 <button
                   onClick={() => handleStatusUpdate("in-progress")}
@@ -228,7 +251,7 @@ const IssueDetails: React.FC = () => {
                   }`}
                 >
                   <TrendingUp className="h-5 w-5" />
-                  <span>Set In Progress</span>
+                  <span>{t('details.set_progress')}</span>
                 </button>
                 <button
                   onClick={() => handleStatusUpdate("resolved")}
@@ -239,7 +262,7 @@ const IssueDetails: React.FC = () => {
                   }`}
                 >
                   <CheckCircle2 className="h-5 w-5" />
-                  <span>Set Resolved</span>
+                  <span>{t('details.set_resolved')}</span>
                 </button>
                 <button
                   onClick={() => handleStatusUpdate("rejected")}
@@ -250,7 +273,7 @@ const IssueDetails: React.FC = () => {
                   }`}
                 >
                   <AlertTriangle className="h-5 w-5" />
-                  <span>Reject Issue</span>
+                  <span>{t('details.reject')}</span>
                 </button>
               </div>
               
@@ -260,7 +283,7 @@ const IssueDetails: React.FC = () => {
                   className="w-full flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold text-red-600 hover:bg-red-50 transition-all border border-red-100"
                 >
                   <Trash2 className="h-5 w-5" />
-                  <span>Delete Permanently</span>
+                  <span>{t('details.delete')}</span>
                 </button>
               </div>
             </div>
@@ -273,7 +296,7 @@ const IssueDetails: React.FC = () => {
             <div className="p-6 border-b border-gray-100">
               <h3 className="font-bold text-gray-900 flex items-center">
                 <MapPin className="h-5 w-5 mr-2 text-blue-600" />
-                Location
+                {t('details.location')}
               </h3>
             </div>
             <div className="h-64">
@@ -284,26 +307,28 @@ const IssueDetails: React.FC = () => {
             </div>
             <div className="p-4 bg-gray-50 text-center">
               <p className="text-xs text-gray-500">
-                Coordinates: {issue.latitude.toFixed(4)}, {issue.longitude.toFixed(4)}
+                {t('details.coordinates')}: {issue.latitude.toFixed(4)}, {issue.longitude.toFixed(4)}
               </p>
             </div>
           </div>
 
           <div className="bg-blue-600 rounded-2xl p-8 text-white shadow-lg shadow-blue-200">
-            <h3 className="text-xl font-bold mb-4">Current Status</h3>
+            <h3 className="text-xl font-bold mb-4">{t('details.status_title')}</h3>
             <div className="flex items-center space-x-4 mb-6">
               {issue.status === "pending" && <Clock className="h-12 w-12" />}
               {issue.status === "in-progress" && <AlertCircle className="h-12 w-12" />}
               {issue.status === "resolved" && <CheckCircle className="h-12 w-12" />}
+              {issue.status === "rejected" && <AlertTriangle className="h-12 w-12" />}
               <div>
-                <p className="text-blue-100 text-sm uppercase tracking-widest font-bold">Status</p>
-                <p className="text-2xl font-bold capitalize">{issue.status}</p>
+                <p className="text-blue-100 text-sm uppercase tracking-widest font-bold">{t('issues.status_label')}</p>
+                <p className="text-2xl font-bold capitalize">{t(`issues.status.${issue.status}`)}</p>
               </div>
             </div>
             <p className="text-blue-100 text-sm">
-              {issue.status === "pending" && "This issue has been reported and is waiting for an authority to review it."}
-              {issue.status === "in-progress" && "Authorities are currently working on resolving this issue."}
-              {issue.status === "resolved" && "This issue has been marked as resolved by the city authorities."}
+              {issue.status === "pending" && t('details.status_desc_pending')}
+              {issue.status === "in-progress" && t('details.status_desc_progress')}
+              {issue.status === "resolved" && t('details.status_desc_resolved')}
+              {issue.status === "rejected" && t('issues.status.rejected')}
             </p>
           </div>
         </div>
@@ -313,9 +338,9 @@ const IssueDetails: React.FC = () => {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDelete}
-        title="Delete Issue"
-        message="Are you sure you want to delete this issue? This action cannot be undone."
-        confirmText="Delete"
+        title={t('details.delete_confirm_title')}
+        message={t('details.delete_confirm_msg')}
+        confirmText={t('details.delete_confirm_btn')}
         type="danger"
       />
 

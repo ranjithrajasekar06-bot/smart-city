@@ -10,20 +10,27 @@ import authRoutes from "./server/routes/authRoutes";
 import issueRoutes from "./server/routes/issueRoutes";
 import mongoose from "mongoose";
 
+import { createServer } from "http";
+import { Server } from "socket.io";
+import { initSocket } from "./server/socket";
+import notificationRoutes from "./server/routes/notificationRoutes";
+
 dotenv.config();
-
-// Connect to database
-const dbConnected = await connectDB();
-if (!dbConnected) {
-  console.error("CRITICAL: Failed to connect to MongoDB. Database operations will fail.");
-}
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
+  const httpServer = createServer(app);
   const PORT = 3000;
+
+  // Initialize Socket.io
+  initSocket(httpServer);
+
+  // Connect to database asynchronously
+  connectDB().then(dbConnected => {
+    if (!dbConnected) {
+      console.error("CRITICAL: Failed to connect to MongoDB. Database operations will fail.");
+    }
+  });
 
   // Validate critical environment variables
   const requiredEnv = ["MONGODB_URI", "JWT_SECRET", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"];
@@ -53,6 +60,7 @@ async function startServer() {
   // API Routes
   app.use("/api/auth", authRoutes);
   app.use("/api/issues", issueRoutes);
+  app.use("/api/notifications", notificationRoutes);
 
   app.get("/api/health", (req, res) => {
     res.json({ 
@@ -108,7 +116,7 @@ async function startServer() {
     });
   });
 
-  app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   });

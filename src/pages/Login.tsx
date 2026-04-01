@@ -3,8 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { LogIn, Mail, Lock, AlertCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const Login: React.FC = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,15 +19,23 @@ const Login: React.FC = () => {
     setError("");
     setLoading(true);
 
-    try {
-      const { data } = await api.post("/auth/login", { email, password });
-      login(data);
-      navigate("/");
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    const attemptLogin = async (retries = 10): Promise<void> => {
+      try {
+        const { data } = await api.post("/auth/login", { email, password });
+        login(data);
+        navigate("/");
+      } catch (err: any) {
+        if (err.isStarting && retries > 0) {
+          console.log(`Server starting up, retrying login... (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          return attemptLogin(retries - 1);
+        }
+        setError(err.response?.data?.message || (err.isStarting ? "Server is starting up, please wait..." : t('auth.error_generic')));
+      }
+    };
+
+    await attemptLogin();
+    setLoading(false);
   };
 
   return (
@@ -35,11 +45,11 @@ const Login: React.FC = () => {
           <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
             <LogIn className="h-6 w-6 text-blue-600" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">{t('auth.signin_title')}</h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Or{" "}
+            {t('auth.signin_subtitle')}{" "}
             <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
-              create a new account
+              {t('auth.create_account')}
             </Link>
           </p>
         </div>
@@ -55,7 +65,7 @@ const Login: React.FC = () => {
           <div className="rounded-md shadow-sm space-y-4">
             <div>
               <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 mb-1">
-                Email address
+                {t('auth.email_label')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -76,7 +86,7 @@ const Login: React.FC = () => {
             </div>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                {t('auth.password_label')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -103,7 +113,7 @@ const Login: React.FC = () => {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? t('auth.signing_in') : t('auth.signin_button')}
             </button>
           </div>
         </form>

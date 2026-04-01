@@ -65,9 +65,12 @@ api.interceptors.response.use(
       error.response.data.includes("Please wait while your application starts...");
     
     const isGatewayError = error.response && (error.response.status === 502 || error.response.status === 503);
+    
+    // Also treat network errors (no response) as potential startup state
+    const isNetworkError = !error.response;
 
-    if (isStartingHtml || isGatewayError) {
-      console.warn(`API: Detected server startup state (${error.response?.status}). Retrying...`);
+    if (isStartingHtml || isGatewayError || isNetworkError) {
+      console.warn(`API: Detected server startup state (${error.response?.status || "Network Error"}). Retrying...`);
       const startupError = new Error("Server is starting up");
       (startupError as any).isStarting = true;
       return Promise.reject(startupError);

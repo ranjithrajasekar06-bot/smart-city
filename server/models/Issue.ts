@@ -16,7 +16,6 @@ const issueSchema = new mongoose.Schema(
     category: {
       type: String,
       required: [true, "Please select a category"],
-      enum: ["pothole", "garbage", "streetlight", "water", "other"],
     },
     image_url: {
       type: String,
@@ -29,6 +28,18 @@ const issueSchema = new mongoose.Schema(
     longitude: {
       type: Number,
       required: [true, "Please select a location on the map"],
+    },
+    user_address: {
+      type: String,
+      required: [true, "Please add your address"],
+    },
+    issue_location: {
+      type: String,
+      required: [true, "Please add the issue location"],
+    },
+    pin_code: {
+      type: String,
+      required: [true, "Please add a pin code"],
     },
     status: {
       type: String,

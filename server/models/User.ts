@@ -18,13 +18,19 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: [true, "Please add a password"],
-      minlength: 6,
+      minlength: [6, "Password must be at least 6 characters"],
       select: false,
     },
     role: {
       type: String,
       enum: ["citizen", "admin"],
       default: "citizen",
+    },
+    latitude: {
+      type: Number,
+    },
+    longitude: {
+      type: Number,
     },
   },
   {

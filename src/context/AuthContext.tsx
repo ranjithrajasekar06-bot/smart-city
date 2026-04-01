@@ -38,22 +38,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(parsedUser);
             
             // Refresh user data from server to get latest info (like createdAt)
-            try {
-              console.log("AuthContext: Refreshing user profile from server...");
-              const { data } = await api.get("/auth/profile");
-              console.log("AuthContext: Received profile data from server:", data);
-              const updatedUser = { ...parsedUser, ...data };
-              setUser(updatedUser);
-              localStorage.setItem("user", JSON.stringify(updatedUser));
-              console.log("AuthContext: User profile refreshed from server successfully");
-            } catch (err: any) {
-              console.error("AuthContext: Error refreshing user profile:", err.response?.data || err.message);
-              // If token is invalid, logout
-              if (err.response?.status === 401) {
-                console.warn("AuthContext: Token failed, logging out");
-                logout();
+            const refreshProfile = async (retries = 10): Promise<void> => {
+              try {
+                console.log(`AuthContext: Refreshing user profile from server... (${retries} attempts left)`);
+                const { data } = await api.get("/auth/profile");
+                console.log("AuthContext: Received profile data from server:", data);
+                const updatedUser = { ...parsedUser, ...data };
+                setUser(updatedUser);
+                localStorage.setItem("user", JSON.stringify(updatedUser));
+                console.log("AuthContext: User profile refreshed from server successfully");
+              } catch (err: any) {
+                if (err.isStarting && retries > 0) {
+                  console.log("AuthContext: Server starting, retrying profile refresh in 5s...");
+                  await new Promise(resolve => setTimeout(resolve, 5000));
+                  return refreshProfile(retries - 1);
+                }
+                console.error("AuthContext: Error refreshing user profile:", err.response?.data || err.message);
+                // If token is invalid, logout
+                if (err.response?.status === 401) {
+                  console.warn("AuthContext: Token failed, logging out");
+                  logout();
+                }
               }
-            }
+            };
+            
+            await refreshProfile();
           } else {
             console.warn("AuthContext: Stored user object is invalid, clearing localStorage");
             localStorage.removeItem("user");

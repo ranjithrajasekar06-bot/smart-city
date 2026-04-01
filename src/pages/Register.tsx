@@ -3,8 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { UserPlus, Mail, Lock, User, AlertCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const Register: React.FC = () => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -28,20 +30,28 @@ const Register: React.FC = () => {
     setError("");
 
     if (password !== confirmPassword) {
-      return setError("Passwords do not match");
+      return setError(t('auth.passwords_mismatch'));
     }
 
     setLoading(true);
 
-    try {
-      const { data } = await api.post("/auth/register", { name, email, password, role });
-      login(data);
-      navigate("/");
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    const attemptRegister = async (retries = 10): Promise<void> => {
+      try {
+        const { data } = await api.post("/auth/register", { name, email, password, role });
+        login(data);
+        navigate("/");
+      } catch (err: any) {
+        if (err.isStarting && retries > 0) {
+          console.log(`Server starting up, retrying registration... (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          return attemptRegister(retries - 1);
+        }
+        setError(err.response?.data?.message || (err.isStarting ? "Server is starting up, please wait..." : t('auth.error_generic')));
+      }
+    };
+
+    await attemptRegister();
+    setLoading(false);
   };
 
   return (
@@ -51,11 +61,11 @@ const Register: React.FC = () => {
           <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
             <UserPlus className="h-6 w-6 text-blue-600" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Create your account</h2>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">{t('auth.register_title')}</h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Already have an account?{" "}
+            {t('auth.register_subtitle')}{" "}
             <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
-              Sign in
+              {t('nav.login')}
             </Link>
           </p>
         </div>
@@ -71,7 +81,7 @@ const Register: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
+                {t('auth.full_name')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -92,7 +102,7 @@ const Register: React.FC = () => {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email address
+                {t('auth.email_label')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -113,7 +123,7 @@ const Register: React.FC = () => {
 
             <div>
               <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-                Role
+                {t('auth.role')}
               </label>
               <select
                 id="role"
@@ -122,14 +132,14 @@ const Register: React.FC = () => {
                 onChange={handleChange}
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               >
-                <option value="citizen">Citizen</option>
-                <option value="admin">Authority (Admin)</option>
+                <option value="citizen">{t('auth.citizen')}</option>
+                <option value="admin">{t('auth.authority')}</option>
               </select>
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                {t('auth.password_label')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -150,7 +160,7 @@ const Register: React.FC = () => {
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm Password
+                {t('auth.confirm_password_label')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -176,7 +186,7 @@ const Register: React.FC = () => {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? t('auth.registering') : t('auth.register_button')}
             </button>
           </div>
         </form>

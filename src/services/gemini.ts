@@ -13,7 +13,7 @@ export const analyzeIssueImage = async (base64Image: string) => {
     const ai = getAI();
     const model = "gemini-3-flash-preview";
     
-    const prompt = "Analyze this image of a city infrastructure issue. Provide a JSON response with the following fields: 'category' (one of: pothole, garbage, streetlight, water, other), 'title' (a short descriptive title), 'description' (a detailed description of the issue), and 'severity' (low, medium, high).";
+    const prompt = "Analyze this image of a city infrastructure issue. Provide a JSON response with the following fields: 'category' (one of: pothole, garbage, streetlight, water, sidewalk, traffic_light, vandalism, park_maintenance, drainage, other), 'title' (a short descriptive title), 'description' (a detailed description of the issue), and 'severity' (low, medium, high). If the issue doesn't fit the predefined categories, use 'other' and specify the custom category in the description.";
 
     const response = await ai.models.generateContent({
       model,

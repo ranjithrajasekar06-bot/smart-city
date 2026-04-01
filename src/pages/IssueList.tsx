@@ -2,8 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import { MapPin, ThumbsUp, MessageSquare, Filter, Search, ChevronRight, Clock, AlertCircle, CheckCircle, ArrowRight } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface Issue {
   _id: string;
@@ -23,35 +26,80 @@ const IssueList: React.FC = () => {
   const { t } = useTranslation();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState({
     category: "",
     status: "",
     sort: "latest",
   });
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [votingId, setVotingId] = useState<string | null>(null);
 
-  const fetchIssues = async (retryCount = 0) => {
+  const categories = [
+    "pothole",
+    "garbage",
+    "streetlight",
+    "water",
+    "sidewalk",
+    "traffic_light",
+    "vandalism",
+    "park_maintenance",
+    "drainage",
+    "other"
+  ];
+
+  const fetchIssues = async (retryCount = 10) => {
     setLoading(true);
+    setError(null);
+    const attemptFetch = async (retries: number): Promise<void> => {
+      try {
+        const { category, status, sort } = filter;
+        const url = `/issues?category=${category}&status=${status}&sort=${sort}`;
+        console.log("IssueList: Fetching issues from URL:", url);
+        const { data } = await api.get(url);
+        console.log("IssueList: Fetched issues data:", data);
+        if (Array.isArray(data)) {
+          setIssues(data);
+        } else {
+          console.error("IssueList: Fetched data is not an array:", data);
+          setIssues([]);
+        }
+      } catch (error: any) {
+        if (error.isStarting && retries > 0) {
+          console.log(`IssueList: Server starting, retrying in 5s... (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          return attemptFetch(retries - 1);
+        }
+        console.error("IssueList: Error fetching issues:", error);
+        setError(error.isStarting ? "Server is starting up, please wait..." : "Failed to fetch issues. Please check your connection.");
+      }
+    };
+
+    await attemptFetch(retryCount);
+    setLoading(false);
+  };
+
+  const handleVote = async (e: React.MouseEvent, issueId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error(t('auth.login_required_vote') || "Please login to vote");
+      return navigate("/login");
+    }
+
+    setVotingId(issueId);
     try {
-      const { category, status, sort } = filter;
-      const url = `/issues?category=${category}&status=${status}&sort=${sort}`;
-      console.log("IssueList: Fetching issues from URL:", url);
-      const { data } = await api.get(url);
-      console.log("IssueList: Fetched issues data:", data);
-      if (Array.isArray(data)) {
-        setIssues(data);
-      } else {
-        console.error("IssueList: Fetched data is not an array:", data);
-        setIssues([]);
-      }
-    } catch (error: any) {
-      if (error.isStarting && retryCount < 5) {
-        console.log(`IssueList: Server starting, retrying in 3s (attempt ${retryCount + 1})...`);
-        setTimeout(() => fetchIssues(retryCount + 1), 3000);
-        return;
-      }
-      console.error("IssueList: Error fetching issues:", error);
+      await api.post(`/issues/${issueId}/vote`);
+      setIssues(prev => prev.map(issue => 
+        issue._id === issueId ? { ...issue, votes: issue.votes + 1 } : issue
+      ));
+      toast.success(t('details.vote_success') || "Vote added successfully!");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to vote");
     } finally {
-      setLoading(false);
+      setVotingId(null);
     }
   };
 
@@ -109,6 +157,21 @@ const IssueList: React.FC = () => {
         </Link>
       </div>
 
+      {error && (
+        <div className="mb-8 bg-red-50 border-l-4 border-red-400 p-4 flex items-start space-x-3">
+          <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-red-700 font-medium">{error}</p>
+            <button 
+              onClick={() => fetchIssues()} 
+              className="mt-2 text-xs font-bold text-red-600 uppercase tracking-wider hover:text-red-800 transition-colors"
+            >
+              Retry Now
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-8 flex flex-wrap gap-4">
         <div className="flex-1 min-w-[200px]">
@@ -121,11 +184,9 @@ const IssueList: React.FC = () => {
               className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
             >
               <option value="">{t('issues.all_categories')}</option>
-              <option value="pothole">{t('issues.potholes')}</option>
-              <option value="garbage">{t('issues.garbage')}</option>
-              <option value="streetlight">{t('issues.streetlights')}</option>
-              <option value="water">{t('issues.water')}</option>
-              <option value="other">{t('issues.other')}</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{t(`issues.category.${cat}`)}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -215,7 +276,7 @@ const IssueList: React.FC = () => {
                 </div>
                 <div className="absolute bottom-3 left-3">
                   <span className="bg-black/50 backdrop-blur-sm text-white text-[10px] uppercase tracking-widest px-2 py-1 rounded font-bold">
-                    {t(`issues.${issue.category}s`)}
+                    {t(`issues.category.${issue.category}`, { defaultValue: issue.category })}
                   </span>
                 </div>
               </div>
@@ -228,10 +289,17 @@ const IssueList: React.FC = () => {
 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                   <div className="flex items-center space-x-4">
-                    <div className="flex items-center text-gray-500 text-sm">
-                      <ThumbsUp className="h-4 w-4 mr-1 text-blue-500" />
-                      {issue.votes}
-                    </div>
+                    <button
+                      onClick={(e) => handleVote(e, issue._id)}
+                      disabled={votingId === issue._id}
+                      className={`flex items-center space-x-1 px-2 py-1 rounded-lg transition-colors ${
+                        votingId === issue._id ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-50 text-gray-500 hover:text-blue-600"
+                      }`}
+                      title={t('details.vote') || "Upvote"}
+                    >
+                      <ThumbsUp className={`h-4 w-4 ${votingId === issue._id ? "animate-bounce" : ""}`} />
+                      <span className="text-sm font-bold">{issue.votes}</span>
+                    </button>
                     <div className="text-xs text-gray-400">
                       {t('issues.by')} {issue.user_id?.name || t('issues.anonymous')}
                     </div>

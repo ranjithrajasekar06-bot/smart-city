@@ -38,14 +38,20 @@ export const registerUser = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        latitude: user.latitude,
+        longitude: user.longitude,
         createdAt: user.createdAt,
         token: generateToken(user._id.toString()),
       });
     } else {
       res.status(400).json({ message: "Invalid user data" });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Register Error:", error);
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((val: any) => val.message);
+      return res.status(400).json({ message: messages.join(", ") });
+    }
     res.status(500).json({ message: "Server error during registration" });
   }
 };
@@ -65,6 +71,8 @@ export const loginUser = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        latitude: user.latitude,
+        longitude: user.longitude,
         createdAt: user.createdAt,
         token: generateToken(user._id.toString()),
       });
@@ -90,6 +98,8 @@ export const getUserProfile = async (req: any, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        latitude: user.latitude,
+        longitude: user.longitude,
         createdAt: user.createdAt,
       });
     } else {
@@ -98,5 +108,27 @@ export const getUserProfile = async (req: any, res: Response) => {
   } catch (error) {
     console.error("Profile Error:", error);
     res.status(500).json({ message: "Server error fetching profile" });
+  }
+};
+
+// @desc    Update user location
+// @route   PUT /api/auth/location
+// @access  Private
+export const updateLocation = async (req: any, res: Response) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      user.latitude = Number(latitude);
+      user.longitude = Number(longitude);
+      await user.save();
+      res.json({ message: "Location updated" });
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    console.error("Update Location Error:", error);
+    res.status(500).json({ message: "Server error updating location" });
   }
 };

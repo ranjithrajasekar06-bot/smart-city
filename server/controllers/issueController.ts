@@ -1,13 +1,34 @@
 import { Request, Response } from "express";
 import Issue from "../models/Issue";
 import Vote from "../models/Vote";
+import User from "../models/User";
+import Notification from "../models/Notification";
+import { getIO } from "../socket";
+
+// Helper to calculate distance in km
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in km
+  return d;
+};
+
+const deg2rad = (deg: number) => {
+  return deg * (Math.PI / 180);
+};
 
 // @desc    Create a new issue
 // @route   POST /api/issues
 // @access  Private
 export const createIssue = async (req: any, res: Response) => {
   try {
-    const { title, description, category, latitude, longitude } = req.body;
+    const { title, description, category, latitude, longitude, user_address, issue_location, pin_code } = req.body;
 
     if (!req.file) {
       return res.status(400).json({ message: "Please upload an image" });
@@ -20,10 +41,34 @@ export const createIssue = async (req: any, res: Response) => {
       image_url: req.file.path,
       latitude: Number(latitude),
       longitude: Number(longitude),
+      user_address,
+      issue_location,
+      pin_code,
       user_id: req.user._id,
     });
 
     console.log("Issue created successfully:", issue._id);
+
+    // Notify nearby users (within 5km)
+    const users = await User.find({ _id: { $ne: req.user._id } });
+    const io = getIO();
+
+    for (const user of users) {
+      if (user.latitude && user.longitude) {
+        const distance = getDistance(latitude, longitude, user.latitude, user.longitude);
+        if (distance <= 5) {
+          const notification = await Notification.create({
+            user_id: user._id,
+            title: "New Issue Nearby",
+            message: `A new ${category} issue has been reported near your location: ${title}`,
+            type: "nearby_issue",
+            issue_id: issue._id,
+          });
+          io.to(user._id.toString()).emit("notification", notification);
+        }
+      }
+    }
+
     res.status(201).json(issue);
   } catch (error) {
     console.error(error);
@@ -36,12 +81,25 @@ export const createIssue = async (req: any, res: Response) => {
 // @access  Public
 export const getIssues = async (req: Request, res: Response) => {
   try {
-    const { category, status, sort, user_id } = req.query;
+    const { category, status, sort, user_id, startDate, endDate } = req.query;
     let query: any = {};
 
     if (category && category !== "all") query.category = category;
-    if (status && status !== "all") query.status = status;
+    if (status && status !== "all") {
+      if (typeof status === 'string' && status.includes(',')) {
+        query.status = { $in: status.split(',') };
+      } else {
+        query.status = status;
+      }
+    }
     if (user_id && user_id !== "all") query.user_id = user_id;
+
+    // Date range filtering
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate as string);
+      if (endDate) query.createdAt.$lte = new Date(endDate as string);
+    }
 
     let issuesQuery = Issue.find(query).populate("user_id", "name");
 
@@ -122,8 +180,43 @@ export const updateIssueStatus = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Issue not found" });
     }
 
+    const oldStatus = issue.status;
     issue.status = status;
     await issue.save();
+
+    // Notify the reporter
+    if (oldStatus !== status) {
+      const io = getIO();
+      
+      // Notify reporter
+      const reporterNotification = await Notification.create({
+        user_id: issue.user_id,
+        title: status === "resolved" ? "Issue Resolved" : "Issue Status Updated",
+        message: status === "resolved" 
+          ? `Great news! Your issue "${issue.title}" has been resolved.`
+          : `The status of your issue "${issue.title}" has been updated to ${status}.`,
+        type: status === "resolved" ? "resolved" : "status_change",
+        issue_id: issue._id,
+      });
+      io.to(issue.user_id.toString()).emit("notification", reporterNotification);
+
+      // Notify voters if resolved
+      if (status === "resolved") {
+        const votes = await Vote.find({ issue_id: issue._id });
+        for (const vote of votes) {
+          if (vote.user_id.toString() !== issue.user_id.toString()) {
+            const voterNotification = await Notification.create({
+              user_id: vote.user_id,
+              title: "Issue Resolved",
+              message: `An issue you voted for, "${issue.title}", has been resolved!`,
+              type: "resolved",
+              issue_id: issue._id,
+            });
+            io.to(vote.user_id.toString()).emit("notification", voterNotification);
+          }
+        }
+      }
+    }
 
     res.json(issue);
   } catch (error) {

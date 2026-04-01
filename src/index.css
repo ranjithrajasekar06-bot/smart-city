@@ -4,3 +4,8 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
+
+.custom-pulsing-icon {
+  background: transparent !important;
+  border: none !important;
+}

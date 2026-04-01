@@ -20,7 +20,7 @@ const Home: React.FC = () => {
                 transition={{ duration: 0.5 }}
               >
                 <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                  Civic Tech for Better Cities
+                  {t('home.civic_tech')}
                 </span>
                 <h1 className="mt-4 text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
                   {t('home.title')}

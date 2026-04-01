@@ -1,9 +1,10 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { MapPin, LogOut, User, PlusCircle, LayoutDashboard, List } from "lucide-react";
+import { MapPin, LogOut, User, PlusCircle, LayoutDashboard, List, Bell } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
+import NotificationBell from "./NotificationBell";
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -59,6 +60,10 @@ const Navbar: React.FC = () => {
                   >
                     <LogOut className="h-5 w-5" />
                   </button>
+                  
+                  <div className="ml-2 pl-2 border-l border-gray-200">
+                    <NotificationBell />
+                  </div>
               </>
             ) : (
               <div className="flex items-center space-x-2">
