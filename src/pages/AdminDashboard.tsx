@@ -16,6 +16,8 @@ interface Analytics {
   inProgressIssues: number;
   rejectedIssues?: number;
   categoryStats: { _id: string; count: number }[];
+  severityStats?: { _id: string; count: number }[];
+  urgencyStats?: { _id: string; count: number }[];
 }
 
 interface AIInsights {
@@ -46,7 +48,8 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchData = async (retryCount = 0) => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
         const [analyticsRes, issuesRes] = await Promise.all([
           api.get("/issues/analytics"),
@@ -58,14 +61,9 @@ const AdminDashboard: React.FC = () => {
         
         // Fetch AI insights after analytics
         fetchAIInsights(analyticsRes.data);
-        setLoading(false);
       } catch (error: any) {
-        if (error.isStarting && retryCount < 10) {
-          console.log(`AdminDashboard: Server starting, retrying in 3s (attempt ${retryCount + 1})...`);
-          setTimeout(() => fetchData(retryCount + 1), 3000);
-          return;
-        }
         console.error("Error fetching admin data:", error);
+      } finally {
         setLoading(false);
       }
     };

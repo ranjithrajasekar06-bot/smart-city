@@ -161,7 +161,15 @@ const resources = {
         "vote_success": "Vote recorded successfully!",
         "status_updated": "Status updated to {{status}}",
         "not_found": "Issue not found",
-        "error_fetch": "Could not find the requested issue."
+        "error_fetch": "Could not find the requested issue.",
+        "share_title": "Share this Issue",
+        "share_desc": "Spread the word about this issue to get more support from the community.",
+        "share_twitter": "Twitter",
+        "share_facebook": "Facebook",
+        "share_email": "Email",
+        "share_copy": "Copy Link",
+        "share_copied": "Link copied to clipboard!",
+        "share_button": "Share"
       },
       "profile": {
         "title": "Profile",
@@ -359,7 +367,15 @@ const resources = {
         "vote_success": "वोट सफलतापूर्वक दर्ज किया गया!",
         "status_updated": "स्थिति {{status}} पर अपडेट की गई",
         "not_found": "मुद्दा नहीं मिला",
-        "error_fetch": "अनुरोधित मुद्दा नहीं मिल सका।"
+        "error_fetch": "अनुरोधित मुद्दा नहीं मिल सका।",
+        "share_title": "इस मुद्दे को साझा करें",
+        "share_desc": "समुदाय से अधिक समर्थन प्राप्त करने के लिए इस मुद्दे के बारे में प्रचार करें।",
+        "share_twitter": "ट्विटर",
+        "share_facebook": "फेसबुक",
+        "share_email": "ईमेल",
+        "share_copy": "लिंक कॉपी करें",
+        "share_copied": "लिंक क्लिपबोर्ड पर कॉपी किया गया!",
+        "share_button": "साझा करें"
       },
       "profile": {
         "title": "प्रोफ़ाइल",
@@ -556,7 +572,15 @@ const resources = {
         "vote_success": "வாக்கு வெற்றிகரமாகப் பதிவு செய்யப்பட்டது!",
         "status_updated": "நிலை {{status}} என புதுப்பிக்கப்பட்டது",
         "not_found": "பிரச்சினை காணப்படவில்லை",
-        "error_fetch": "கோரப்பட்ட பிரச்சினையைக் கண்டறிய முடியவில்லை."
+        "error_fetch": "கோரப்பட்ட பிரச்சினையைக் கண்டறிய முடியவில்லை.",
+        "share_title": "இந்தப் பிரச்சினையைப் பகிரவும்",
+        "share_desc": "சமூகத்திடமிருந்து அதிக ஆதரவைப் பெற இந்தப் பிரச்சினையைப் பற்றிப் பகிரவும்.",
+        "share_twitter": "ட்விட்டர்",
+        "share_facebook": "பேஸ்புக்",
+        "share_email": "மின்னஞ்சல்",
+        "share_copy": "இணைப்பை நகலெடு",
+        "share_copied": "இணைப்பு நகலெடுக்கப்பட்டது!",
+        "share_button": "பகிர்"
       },
       "profile": {
         "title": "சுயவிவரம்",

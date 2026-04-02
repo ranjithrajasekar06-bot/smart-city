@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { MapPin, LogOut, User, PlusCircle, LayoutDashboard, List, Bell } from "lucide-react";
+import { MapPin, LogOut, User, PlusCircle, LayoutDashboard, List, Bell, WifiOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import NotificationBell from "./NotificationBell";
@@ -10,6 +10,29 @@ const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showOnlineStatus, setShowOnlineStatus] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowOnlineStatus(true);
+      const timer = setTimeout(() => setShowOnlineStatus(false), 5000);
+      return () => clearTimeout(timer);
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setShowOnlineStatus(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -25,6 +48,21 @@ const Navbar: React.FC = () => {
               <MapPin className="h-8 w-8 text-blue-600" />
               <span className="text-xl font-bold text-gray-900">SmartCity</span>
             </Link>
+            
+            <div className="ml-4 flex items-center">
+              {!isOnline && (
+                <div className="flex items-center text-red-600 bg-red-50 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter animate-pulse border border-red-200 shadow-sm">
+                  <WifiOff className="h-3 w-3 mr-1.5" />
+                  Offline Mode
+                </div>
+              )}
+              {showOnlineStatus && (
+                <div className="flex items-center text-green-600 bg-green-50 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border border-green-200 shadow-sm animate-bounce">
+                  <div className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse" />
+                  Back Online
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center space-x-4">

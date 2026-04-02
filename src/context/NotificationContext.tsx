@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 import api from "../services/api";
@@ -19,50 +19,93 @@ interface NotificationContextType {
   unreadCount: number;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
+  socket: Socket | null;
+  requestPermission: () => Promise<void>;
+  permissionStatus: NotificationPermission;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
+const NOTIFICATION_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3";
+
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
+    typeof window !== "undefined" ? Notification.permission : "default"
+  );
   const { user } = useAuth();
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
+  const playNotificationSound = useCallback(() => {
+    const audio = new Audio(NOTIFICATION_SOUND_URL);
+    audio.volume = 0.4;
+    audio.play().catch((e) => console.log("Audio play blocked by browser", e));
+  }, []);
+
+  const showBrowserNotification = useCallback((notification: Notification) => {
+    if (Notification.permission === "granted" && document.hidden) {
+      const n = new Notification(notification.title, {
+        body: notification.message,
+        icon: "/pwa-192x192.png",
+      });
+      n.onclick = () => {
+        window.focus();
+        if (notification.issue_id) {
+          window.location.href = `/issues/${notification.issue_id}`;
+        }
+      };
+    }
+  }, []);
+
+  const requestPermission = async () => {
+    if (!("Notification" in window)) return;
+    const permission = await Notification.requestPermission();
+    setPermissionStatus(permission);
+  };
+
   useEffect(() => {
+    // Initialize socket for everyone (even unauthenticated for public updates)
+    const newSocket = io(window.location.origin);
+    setSocket(newSocket);
+
+    newSocket.on("connect", () => {
+      console.log("Connected to socket server");
+      if (user) {
+        newSocket.emit("join", user._id);
+      }
+    });
+
     if (user) {
       // Fetch initial notifications
       fetchNotifications();
 
-      // Initialize socket
-      const newSocket = io(window.location.origin);
-      setSocket(newSocket);
-
-      newSocket.on("connect", () => {
-        console.log("Connected to notification socket");
-        newSocket.emit("join", user._id);
-      });
-
       newSocket.on("notification", (notification: Notification) => {
         setNotifications((prev) => [notification, ...prev]);
+        
+        // Play sound
+        playNotificationSound();
+        
+        // Show browser notification
+        showBrowserNotification(notification);
+
         toast.info(notification.title, {
           description: notification.message,
           duration: 5000,
+          action: notification.issue_id ? {
+            label: "View",
+            onClick: () => window.location.href = `/issues/${notification.issue_id}`
+          } : undefined
         });
       });
-
-      return () => {
-        newSocket.disconnect();
-      };
-    } else {
-      setNotifications([]);
-      if (socket) {
-        socket.disconnect();
-        setSocket(null);
-      }
     }
-  }, [user]);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [user, playNotificationSound, showBrowserNotification]);
 
   // Update location periodically if user is logged in
   useEffect(() => {
@@ -122,9 +165,28 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
 
+  const deleteNotification = async (id: string) => {
+    try {
+      await api.delete(`/notifications/${id}`);
+      setNotifications((prev) => prev.filter((n) => n._id !== id));
+      toast.success("Notification deleted");
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+    }
+  };
+
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, markAsRead, markAllAsRead }}
+      value={{ 
+        notifications, 
+        unreadCount, 
+        markAsRead, 
+        markAllAsRead, 
+        deleteNotification,
+        socket,
+        requestPermission,
+        permissionStatus
+      }}
     >
       {children}
     </NotificationContext.Provider>

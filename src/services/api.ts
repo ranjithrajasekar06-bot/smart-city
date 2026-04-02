@@ -48,11 +48,14 @@ api.interceptors.response.use(
       console.warn("API: Detected 'Starting Server' page in successful response. Retrying...");
       const error = new Error("Server is starting up");
       (error as any).isStarting = true;
+      (error as any).config = response.config;
       return Promise.reject(error);
     }
     return response;
   },
-  (error) => {
+  async (error) => {
+    const config = error.config;
+
     // Handle 401 errors
     if (error.response && error.response.status === 401) {
       localStorage.removeItem("user");
@@ -69,8 +72,27 @@ api.interceptors.response.use(
     // Also treat network errors (no response) as potential startup state
     const isNetworkError = !error.response;
 
-    if (isStartingHtml || isGatewayError || isNetworkError) {
-      console.warn(`API: Detected server startup state (${error.response?.status || "Network Error"}). Retrying...`);
+    if (config && (isStartingHtml || isGatewayError || isNetworkError || error.isStarting)) {
+      // Initialize retry count if it doesn't exist
+      config.__retryCount = config.__retryCount || 0;
+
+      // Check if we should retry (max 10 times for startup)
+      if (config.__retryCount < 10) {
+        config.__retryCount += 1;
+        // Exponential backoff with jitter
+        const baseDelay = Math.min(1000 * Math.pow(2, config.__retryCount), 15000);
+        const delay = baseDelay + Math.random() * 1000;
+        
+        console.warn(`API: Server is starting up. Retrying (${config.__retryCount}/10) in ${Math.round(delay)}ms for ${config.url}...`);
+        
+        // Wait for the delay
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Retry the request using the same axios instance
+        return api(config);
+      }
+      
+      console.error("API: Max retries reached for server startup. Giving up.");
       const startupError = new Error("Server is starting up");
       (startupError as any).isStarting = true;
       return Promise.reject(startupError);

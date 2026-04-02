@@ -5,9 +5,11 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-lea
 import L from "leaflet";
 import { useAuth } from "../context/AuthContext";
 import { Camera, MapPin, AlertCircle, CheckCircle, Loader2, Sparkles, Navigation, RefreshCcw, X, Upload } from "lucide-react";
-import { analyzeIssueImage } from "../services/gemini";
+import { analyzeIssueImage, analyzeIssueDescription } from "../services/gemini";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "motion/react";
+import { ShieldAlert, Zap, Tag, WifiOff, CloudOff } from "lucide-react";
+import { saveOfflineReport } from "../services/offlineStorage";
 
 // Fix for default marker icons in Leaflet with React
 const markerIcon = "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png";
@@ -47,6 +49,9 @@ const ReportIssue: React.FC = () => {
     userAddress: "",
     issueLocation: "",
     pinCode: "",
+    severity: "medium",
+    urgency: "medium",
+    keywords: [] as string[],
   });
 
   const categories = [
@@ -67,6 +72,7 @@ const ReportIssue: React.FC = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -76,6 +82,21 @@ const ReportIssue: React.FC = () => {
   const navigate = useNavigate();
 
   const [position, setPosition] = useState<[number, number] | null>(null);
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const startCamera = async () => {
     try {
@@ -169,31 +190,50 @@ const ReportIssue: React.FC = () => {
   };
 
   const handleAIAnalysis = async () => {
-    if (!preview) return;
+    if (!preview && !formData.description) return;
     
     setAnalyzing(true);
     setError("");
     
     try {
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.readAsDataURL(image!);
-      reader.onloadend = async () => {
-        const base64data = reader.result as string;
-        const analysis = await analyzeIssueImage(base64data);
-        
-        // Check if category is in predefined list
-        const isPredefined = categories.includes(analysis.category);
-        
-        setFormData(prev => ({
-          ...prev,
-          title: analysis.title || prev.title,
-          description: analysis.description || prev.description,
-          category: isPredefined ? analysis.category : "other",
-          customCategory: !isPredefined ? analysis.category : ""
-        }));
-        setAnalyzing(false);
-      };
+      let imageAnalysis: any = {};
+      let textAnalysis: any = {};
+
+      // 1. Analyze Image if available
+      if (image) {
+        const reader = new FileReader();
+        const imagePromise = new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(image);
+        });
+        const base64data = await imagePromise as string;
+        imageAnalysis = await analyzeIssueImage(base64data);
+      }
+
+      // 2. Analyze Description if available
+      if (formData.description) {
+        textAnalysis = await analyzeIssueDescription(formData.description);
+      }
+
+      // Merge results
+      const isPredefined = categories.includes(imageAnalysis.category);
+      
+      setFormData(prev => ({
+        ...prev,
+        title: imageAnalysis.title || prev.title,
+        description: imageAnalysis.description || prev.description,
+        category: isPredefined ? imageAnalysis.category : (prev.category || "other"),
+        customCategory: !isPredefined && imageAnalysis.category ? imageAnalysis.category : prev.customCategory,
+        severity: textAnalysis.severity || imageAnalysis.severity || prev.severity,
+        urgency: textAnalysis.urgency || prev.urgency,
+        keywords: textAnalysis.keywords || prev.keywords
+      }));
+
+      if (textAnalysis.is_emergency) {
+        setError("This issue has been flagged as a potential emergency. Please contact emergency services if there is immediate danger.");
+      }
+
+      setAnalyzing(false);
     } catch (err: any) {
       console.error("AI Analysis Error:", err);
       setError("AI analysis failed. Please fill in the details manually.");
@@ -286,6 +326,36 @@ const ReportIssue: React.FC = () => {
     setLoading(true);
     setError("");
 
+    if (!isOnline) {
+      try {
+        await saveOfflineReport({
+          title: formData.title,
+          description: formData.description,
+          category: finalCategory,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          user_address: formData.userAddress,
+          issue_location: formData.issueLocation,
+          pin_code: formData.pinCode,
+          severity: formData.severity,
+          urgency: formData.urgency,
+          keywords: formData.keywords,
+          imageBlob: image,
+          imageName: image.name,
+          timestamp: Date.now()
+        });
+        setIsOfflineMode(true);
+        setSuccess(true);
+        setTimeout(() => navigate("/issues"), 3000);
+        return;
+      } catch (err) {
+        console.error("Error saving offline report:", err);
+        setError("Failed to save report offline. Please try again.");
+        setLoading(false);
+        return;
+      }
+    }
+
     const data = new FormData();
     data.append("title", formData.title);
     data.append("description", formData.description);
@@ -296,6 +366,9 @@ const ReportIssue: React.FC = () => {
     data.append("issue_location", formData.issueLocation);
     data.append("pin_code", formData.pinCode);
     data.append("image", image);
+    data.append("severity", formData.severity);
+    data.append("urgency", formData.urgency);
+    data.append("keywords", JSON.stringify(formData.keywords));
 
     try {
       console.log("Submitting issue with user:", user?.name);
@@ -315,10 +388,20 @@ const ReportIssue: React.FC = () => {
       <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center max-w-md w-full">
           <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-green-100 mb-6">
-            <CheckCircle className="h-10 w-10 text-green-600" />
+            {isOfflineMode ? (
+              <CloudOff className="h-10 w-10 text-blue-600" />
+            ) : (
+              <CheckCircle className="h-10 w-10 text-green-600" />
+            )}
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('report.success_title')}</h2>
-          <p className="text-gray-600">{t('report.success_desc')}</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {isOfflineMode ? "Saved Offline" : t('report.success_title')}
+          </h2>
+          <p className="text-gray-600">
+            {isOfflineMode 
+              ? "You are currently offline. Your report has been saved locally and will automatically sync when you are back online."
+              : t('report.success_desc')}
+          </p>
         </div>
       </div>
     );
@@ -586,6 +669,54 @@ const ReportIssue: React.FC = () => {
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
+
+          {/* NLP Analysis Results */}
+          <AnimatePresence>
+            {(formData.severity !== "medium" || formData.urgency !== "medium" || formData.keywords.length > 0) && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100"
+              >
+                <div className="flex items-center space-x-3">
+                  <ShieldAlert className={`h-5 w-5 ${
+                    formData.severity === 'high' ? 'text-red-500' : 
+                    formData.severity === 'medium' ? 'text-yellow-500' : 'text-blue-500'
+                  }`} />
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Auto-Severity</p>
+                    <p className="text-sm font-bold text-gray-900 capitalize">{formData.severity}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <Zap className={`h-5 w-5 ${
+                    formData.urgency === 'critical' ? 'text-red-600 animate-pulse' :
+                    formData.urgency === 'high' ? 'text-red-500' : 
+                    formData.urgency === 'medium' ? 'text-yellow-500' : 'text-blue-500'
+                  }`} />
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Urgency Level</p>
+                    <p className="text-sm font-bold text-gray-900 capitalize">{formData.urgency}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <Tag className="h-5 w-5 text-purple-500" />
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Keywords</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {formData.keywords.length > 0 ? formData.keywords.map((kw, idx) => (
+                        <span key={idx} className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">
+                          {kw}
+                        </span>
+                      )) : <span className="text-xs text-gray-400 italic">None detected</span>}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="pt-6 border-t border-gray-100 flex justify-end">
             <button

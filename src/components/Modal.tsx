@@ -1,16 +1,17 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, AlertTriangle } from "lucide-react";
+import { X, AlertTriangle, Info } from "lucide-react";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   title: string;
-  message: string;
+  message?: string;
   confirmText?: string;
   cancelText?: string;
-  type?: "danger" | "info";
+  type?: "danger" | "info" | "primary";
+  children?: React.ReactNode;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -22,6 +23,7 @@ const Modal: React.FC<ModalProps> = ({
   confirmText = "Confirm",
   cancelText = "Cancel",
   type = "info",
+  children,
 }) => {
   return (
     <AnimatePresence>
@@ -38,46 +40,56 @@ const Modal: React.FC<ModalProps> = ({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
           >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  {type === "danger" && (
-                    <div className="p-2 bg-red-100 rounded-lg">
-                      <AlertTriangle className="h-5 w-5 text-red-600" />
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-4">
+                  {type === "danger" ? (
+                    <div className="p-3 bg-red-100 rounded-2xl">
+                      <AlertTriangle className="h-6 w-6 text-red-600" />
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-blue-100 rounded-2xl">
+                      <Info className="h-6 w-6 text-blue-600" />
                     </div>
                   )}
-                  <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+                  <h3 className="text-2xl font-black text-gray-900 tracking-tight">{title}</h3>
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <X className="h-5 w-5 text-gray-400" />
+                  <X className="h-6 w-6 text-gray-400" />
                 </button>
               </div>
-              <p className="text-gray-600 mb-8">{message}</p>
-              <div className="flex space-x-3">
+              
+              {message && <p className="text-gray-600 mb-10 leading-relaxed font-medium">{message}</p>}
+              
+              {children && <div className="mb-10">{children}</div>}
+              
+              <div className="flex space-x-4">
                 <button
                   onClick={onClose}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-6 py-3.5 border-2 border-gray-100 text-gray-500 font-bold rounded-2xl hover:bg-gray-50 transition-all active:scale-95"
                 >
                   {cancelText}
                 </button>
-                <button
-                  onClick={() => {
-                    onConfirm();
-                    onClose();
-                  }}
-                  className={`flex-1 px-4 py-2.5 text-white font-medium rounded-xl transition-colors ${
-                    type === "danger"
-                      ? "bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200"
-                      : "bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200"
-                  }`}
-                >
-                  {confirmText}
-                </button>
+                {onConfirm && (
+                  <button
+                    onClick={() => {
+                      onConfirm();
+                      onClose();
+                    }}
+                    className={`flex-1 px-6 py-3.5 text-white font-bold rounded-2xl transition-all active:scale-95 shadow-lg ${
+                      type === "danger"
+                        ? "bg-red-600 hover:bg-red-700 shadow-red-200"
+                        : "bg-blue-600 hover:bg-blue-700 shadow-blue-200"
+                    }`}
+                  >
+                    {confirmText}
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>

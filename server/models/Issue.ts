@@ -46,6 +46,20 @@ const issueSchema = new mongoose.Schema(
       enum: ["pending", "in-progress", "resolved", "rejected"],
       default: "pending",
     },
+    severity: {
+      type: String,
+      enum: ["low", "medium", "high"],
+      default: "medium",
+    },
+    urgency: {
+      type: String,
+      enum: ["low", "medium", "high", "critical"],
+      default: "medium",
+    },
+    keywords: {
+      type: [String],
+      default: [],
+    },
     votes: {
       type: Number,
       default: 0,

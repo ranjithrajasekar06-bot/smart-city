@@ -28,7 +28,19 @@ const deg2rad = (deg: number) => {
 // @access  Private
 export const createIssue = async (req: any, res: Response) => {
   try {
-    const { title, description, category, latitude, longitude, user_address, issue_location, pin_code } = req.body;
+    const { 
+      title, 
+      description, 
+      category, 
+      latitude, 
+      longitude, 
+      user_address, 
+      issue_location, 
+      pin_code,
+      severity,
+      urgency,
+      keywords
+    } = req.body;
 
     if (!req.file) {
       return res.status(400).json({ message: "Please upload an image" });
@@ -45,6 +57,9 @@ export const createIssue = async (req: any, res: Response) => {
       issue_location,
       pin_code,
       user_id: req.user._id,
+      severity: severity || "medium",
+      urgency: urgency || "medium",
+      keywords: keywords ? (typeof keywords === 'string' ? JSON.parse(keywords) : keywords) : [],
     });
 
     console.log("Issue created successfully:", issue._id);
@@ -52,6 +67,9 @@ export const createIssue = async (req: any, res: Response) => {
     // Notify nearby users (within 5km)
     const users = await User.find({ _id: { $ne: req.user._id } });
     const io = getIO();
+
+    // Emit general event for real-time updates (e.g., live map)
+    io.emit("issue:created", issue);
 
     for (const user of users) {
       if (user.latitude && user.longitude) {
@@ -104,29 +122,39 @@ export const getIssues = async (req: Request, res: Response) => {
     let issuesQuery = Issue.find(query).populate("user_id", "name");
 
     if (sort === "priority") {
-      // Priority Algorithm: 
-      // 1. Resolved issues have lowest priority
-      // 2. Pending issues have higher priority than In Progress
-      // 3. More votes = higher priority
-      // 4. Recency (newer = higher priority)
+      // Enhanced Priority Algorithm:
+      // 1. Severity (critical/high > medium > low)
+      // 2. Urgency (critical/high > medium > low)
+      // 3. Status (pending > in-progress > resolved)
+      // 4. Votes (more = higher)
+      // 5. Recency (newer = higher)
       
-      // We can use a weighted sort or multiple sort criteria
-      issuesQuery = issuesQuery.sort({
-        status: 1, // pending (p) < in-progress (i) < resolved (r) - alphabetical sort might not work as intended
-        votes: -1,
-        createdAt: -1
-      });
-      
-      // Better approach for status priority:
       const issues = await Issue.find(query).populate("user_id", "name");
+      
       const statusWeight = { "pending": 3, "in-progress": 2, "resolved": 1 };
+      const severityWeight = { "critical": 4, "high": 3, "medium": 2, "low": 1 };
+      const urgencyWeight = { "critical": 4, "high": 3, "medium": 2, "low": 1 };
       
       issues.sort((a: any, b: any) => {
+        // 1. Severity
+        const sevA = severityWeight[a.severity as keyof typeof severityWeight] || 2;
+        const sevB = severityWeight[b.severity as keyof typeof severityWeight] || 2;
+        if (sevA !== sevB) return sevB - sevA;
+
+        // 2. Urgency
+        const urgA = urgencyWeight[a.urgency as keyof typeof urgencyWeight] || 2;
+        const urgB = urgencyWeight[b.urgency as keyof typeof urgencyWeight] || 2;
+        if (urgA !== urgB) return urgB - urgA;
+
+        // 3. Status
         const weightA = statusWeight[a.status as keyof typeof statusWeight] || 0;
         const weightB = statusWeight[b.status as keyof typeof statusWeight] || 0;
-        
         if (weightA !== weightB) return weightB - weightA;
+        
+        // 4. Votes
         if (a.votes !== b.votes) return b.votes - a.votes;
+
+        // 5. Recency
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
       
@@ -184,11 +212,12 @@ export const updateIssueStatus = async (req: Request, res: Response) => {
     issue.status = status;
     await issue.save();
 
+    const io = getIO();
+    // Emit general event for real-time updates
+    io.emit("issue:updated", issue);
+
     // Notify the reporter
     if (oldStatus !== status) {
-      const io = getIO();
-      
-      // Notify reporter
       const reporterNotification = await Notification.create({
         user_id: issue.user_id,
         title: status === "resolved" ? "Issue Resolved" : "Issue Status Updated",
@@ -237,6 +266,11 @@ export const deleteIssue = async (req: Request, res: Response) => {
     }
 
     await issue.deleteOne();
+
+    // Emit general event for real-time updates
+    const io = getIO();
+    io.emit("issue:deleted", req.params.id);
+
     res.json({ message: "Issue removed" });
   } catch (error) {
     console.error(error);
@@ -272,6 +306,10 @@ export const voteIssue = async (req: any, res: Response) => {
     issue.votes += 1;
     await issue.save();
 
+    // Emit general event for real-time updates
+    const io = getIO();
+    io.emit("issue:updated", issue);
+
     res.json({ message: "Vote added", votes: issue.votes });
   } catch (error) {
     console.error(error);
@@ -294,6 +332,14 @@ export const getAnalytics = async (req: Request, res: Response) => {
       { $group: { _id: "$category", count: { $sum: 1 } } },
     ]);
 
+    const severityStats = await Issue.aggregate([
+      { $group: { _id: "$severity", count: { $sum: 1 } } },
+    ]);
+
+    const urgencyStats = await Issue.aggregate([
+      { $group: { _id: "$urgency", count: { $sum: 1 } } },
+    ]);
+
     res.json({
       totalIssues,
       resolvedIssues,
@@ -301,6 +347,8 @@ export const getAnalytics = async (req: Request, res: Response) => {
       inProgressIssues,
       rejectedIssues,
       categoryStats,
+      severityStats,
+      urgencyStats,
     });
   } catch (error) {
     console.error(error);

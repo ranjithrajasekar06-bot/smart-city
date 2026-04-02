@@ -11,6 +11,8 @@ interface Analytics {
   inProgressIssues: number;
   rejectedIssues?: number;
   categoryStats: { _id: string; count: number }[];
+  severityStats?: { _id: string; count: number }[];
+  urgencyStats?: { _id: string; count: number }[];
 }
 
 interface AIInsights {
@@ -205,6 +207,93 @@ const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({ analytics, aiInsigh
               <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
               <span className="text-xs text-gray-500">{t('issues.status.rejected')}</span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Severity and Urgency Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex items-center space-x-2 mb-8">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <h3 className="font-bold text-gray-900">Issue Severity</h3>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={analytics.severityStats || []}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="count"
+                  nameKey="_id"
+                >
+                  {(analytics.severityStats || []).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={
+                      entry._id === 'critical' ? '#EF4444' :
+                      entry._id === 'high' ? '#F97316' :
+                      entry._id === 'medium' ? '#F59E0B' :
+                      '#10B981'
+                    } />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex justify-center flex-wrap gap-4 mt-4">
+            {['critical', 'high', 'medium', 'low'].map((level) => (
+              <div key={level} className="flex items-center">
+                <div className={`w-3 h-3 rounded-full mr-2 ${
+                  level === 'critical' ? 'bg-red-500' :
+                  level === 'high' ? 'bg-orange-500' :
+                  level === 'medium' ? 'bg-yellow-500' :
+                  'bg-green-500'
+                }`}></div>
+                <span className="text-xs text-gray-500 capitalize">{level}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex items-center space-x-2 mb-8">
+            <Clock className="h-5 w-5 text-orange-600" />
+            <h3 className="font-bold text-gray-900">Issue Urgency</h3>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analytics.urgencyStats || []}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                <XAxis 
+                  dataKey="_id" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 12, fill: "#6b7280" }} 
+                  tickFormatter={(val) => val.charAt(0).toUpperCase() + val.slice(1)}
+                />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#6b7280" }} />
+                <Tooltip
+                  contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
+                  cursor={{ fill: "#f9fafb" }}
+                />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  {(analytics.urgencyStats || []).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={
+                      entry._id === 'critical' ? '#EF4444' :
+                      entry._id === 'high' ? '#F97316' :
+                      entry._id === 'medium' ? '#F59E0B' :
+                      '#10B981'
+                    } />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>

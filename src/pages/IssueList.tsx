@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
-import { MapPin, ThumbsUp, MessageSquare, Filter, Search, ChevronRight, Clock, AlertCircle, CheckCircle, ArrowRight } from "lucide-react";
+import { MapPin, ThumbsUp, MessageSquare, Filter, Search, ChevronRight, Clock, AlertCircle, CheckCircle, ArrowRight, User } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+
+import { useNotifications } from "../context/NotificationContext";
 
 interface Issue {
   _id: string;
@@ -15,6 +17,9 @@ interface Issue {
   category: string;
   image_url: string;
   status: "pending" | "in-progress" | "resolved" | "rejected";
+  severity: "low" | "medium" | "high";
+  urgency: "low" | "medium" | "high" | "critical";
+  keywords: string[];
   votes: number;
   createdAt: string;
   user_id?: {
@@ -33,6 +38,7 @@ const IssueList: React.FC = () => {
     sort: "latest",
   });
   const { user } = useAuth();
+  const { socket } = useNotifications();
   const navigate = useNavigate();
   const [votingId, setVotingId] = useState<string | null>(null);
 
@@ -92,6 +98,8 @@ const IssueList: React.FC = () => {
     setVotingId(issueId);
     try {
       await api.post(`/issues/${issueId}/vote`);
+      // Optimistic update is handled by the server emitting issue:updated
+      // but we can also do it locally for better UX
       setIssues(prev => prev.map(issue => 
         issue._id === issueId ? { ...issue, votes: issue.votes + 1 } : issue
       ));
@@ -106,6 +114,44 @@ const IssueList: React.FC = () => {
   useEffect(() => {
     fetchIssues();
   }, [filter]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleIssueCreated = (newIssue: Issue) => {
+      console.log("Real-time: New issue created", newIssue);
+      // Only add if it matches current filters
+      const matchesCategory = !filter.category || newIssue.category === filter.category;
+      const matchesStatus = !filter.status || newIssue.status === filter.status;
+      
+      if (matchesCategory && matchesStatus) {
+        setIssues(prev => [newIssue, ...prev]);
+        toast.info(t('issues.new_issue_alert') || "A new issue has been reported!");
+      }
+    };
+
+    const handleIssueUpdated = (updatedIssue: Issue) => {
+      console.log("Real-time: Issue updated", updatedIssue);
+      setIssues(prev => prev.map(issue => 
+        issue._id === updatedIssue._id ? updatedIssue : issue
+      ));
+    };
+
+    const handleIssueDeleted = (deletedId: string) => {
+      console.log("Real-time: Issue deleted", deletedId);
+      setIssues(prev => prev.filter(issue => issue._id !== deletedId));
+    };
+
+    socket.on("issue:created", handleIssueCreated);
+    socket.on("issue:updated", handleIssueUpdated);
+    socket.on("issue:deleted", handleIssueDeleted);
+
+    return () => {
+      socket.off("issue:created", handleIssueCreated);
+      socket.off("issue:updated", handleIssueUpdated);
+      socket.off("issue:deleted", handleIssueDeleted);
+    };
+  }, [socket, filter]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -271,8 +317,18 @@ const IssueList: React.FC = () => {
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-3 flex flex-col items-end space-y-2">
                   {getStatusBadge(issue.status)}
+                  {issue.severity === 'high' && (
+                    <span className="bg-red-500 text-white text-[10px] font-bold uppercase tracking-tighter px-2 py-0.5 rounded shadow-sm">
+                      High Severity
+                    </span>
+                  )}
+                  {issue.urgency === 'critical' && (
+                    <span className="bg-red-600 text-white text-[10px] font-bold uppercase tracking-tighter px-2 py-0.5 rounded shadow-sm animate-pulse">
+                      Critical Urgency
+                    </span>
+                  )}
                 </div>
                 <div className="absolute bottom-3 left-3">
                   <span className="bg-black/50 backdrop-blur-sm text-white text-[10px] uppercase tracking-widest px-2 py-1 rounded font-bold">
@@ -285,7 +341,12 @@ const IssueList: React.FC = () => {
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-lg font-bold text-gray-900 line-clamp-1">{issue.title}</h3>
                 </div>
-                <p className="text-gray-600 text-sm line-clamp-2 mb-4 h-10">{issue.description}</p>
+                <p className="text-gray-600 text-sm line-clamp-2 mb-2 h-10">{issue.description}</p>
+                
+                <div className="flex items-center text-[10px] text-gray-400 mb-4 italic">
+                  <User className="h-3 w-3 mr-1" />
+                  <span>{t('issues.by')} {issue.user_id?.name || t('issues.anonymous')}</span>
+                </div>
 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                   <div className="flex items-center space-x-4">
@@ -300,9 +361,6 @@ const IssueList: React.FC = () => {
                       <ThumbsUp className={`h-4 w-4 ${votingId === issue._id ? "animate-bounce" : ""}`} />
                       <span className="text-sm font-bold">{issue.votes}</span>
                     </button>
-                    <div className="text-xs text-gray-400">
-                      {t('issues.by')} {issue.user_id?.name || t('issues.anonymous')}
-                    </div>
                   </div>
                   <Link
                     to={`/issues/${issue._id}`}

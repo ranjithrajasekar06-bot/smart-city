@@ -4,11 +4,13 @@ import api from "../services/api";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
-import { ThumbsUp, MapPin, Calendar, User, Clock, AlertCircle, CheckCircle, ArrowLeft, Trash2, CheckCircle2, TrendingUp, AlertTriangle } from "lucide-react";
+import { ThumbsUp, MapPin, Calendar, User, Clock, AlertCircle, CheckCircle, ArrowLeft, Trash2, CheckCircle2, TrendingUp, AlertTriangle, Share2, Twitter, Facebook, Mail, Copy, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
-import Toast, { ToastType } from "../components/Toast";
+import { Link } from "react-router-dom";
+
+import { useNotifications } from "../context/NotificationContext";
 
 interface Issue {
   _id: string;
@@ -19,6 +21,9 @@ interface Issue {
   latitude: number;
   longitude: number;
   status: "pending" | "in-progress" | "resolved" | "rejected";
+  severity: "low" | "medium" | "high";
+  urgency: "low" | "medium" | "high" | "critical";
+  keywords: string[];
   votes: number;
   createdAt: string;
   user_address: string;
@@ -33,42 +38,101 @@ const IssueDetails: React.FC = () => {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const [issue, setIssue] = useState<Issue | null>(null);
+  const [relatedIssues, setRelatedIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRelated, setLoadingRelated] = useState(false);
   const [voting, setVoting] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [statusToUpdate, setStatusToUpdate] = useState<Issue["status"] | null>(null);
   const { user } = useAuth();
+  const { socket } = useNotifications();
   const navigate = useNavigate();
 
-  const fetchIssue = async (retryCount = 10) => {
+  const fetchIssue = async () => {
     setLoading(true);
-    const attemptFetch = async (retries: number): Promise<void> => {
-      try {
-        const { data } = await api.get(`/issues/${id}`);
-        setIssue(data);
-      } catch (error: any) {
-        if (error.isStarting && retries > 0) {
-          console.log(`IssueDetails: Server starting, retrying in 5s... (${retries} attempts left)`);
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          return attemptFetch(retries - 1);
-        }
-        console.error("Error fetching issue:", error);
-        setError(t('details.error_fetch'));
-      }
-    };
-
-    await attemptFetch(retryCount);
-    setLoading(false);
+    try {
+      const { data } = await api.get(`/issues/${id}`);
+      setIssue(data);
+      fetchRelatedIssues(data);
+    } catch (error: any) {
+      console.error("Error fetching issue:", error);
+      setError(t('details.error_fetch'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchIssue();
   }, [id]);
 
-  const showToast = (message: string, type: ToastType = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+  useEffect(() => {
+    if (!socket || !id) return;
+
+    const handleIssueUpdated = (updatedIssue: Issue) => {
+      if (updatedIssue._id === id) {
+        console.log("Real-time: Current issue updated", updatedIssue);
+        setIssue(updatedIssue);
+      }
+    };
+
+    const handleIssueDeleted = (deletedId: string) => {
+      if (deletedId === id) {
+        console.log("Real-time: Current issue deleted", deletedId);
+        toast.error(t('details.deleted_alert') || "This issue has been deleted.");
+        navigate("/issues");
+      }
+    };
+
+    socket.on("issue:updated", handleIssueUpdated);
+    socket.on("issue:deleted", handleIssueDeleted);
+
+    return () => {
+      socket.off("issue:updated", handleIssueUpdated);
+      socket.off("issue:deleted", handleIssueDeleted);
+    };
+  }, [socket, id]);
+
+  const fetchRelatedIssues = async (currentIssue: Issue) => {
+    setLoadingRelated(true);
+    try {
+      // Fetch issues in the same category
+      const { data } = await api.get(`/issues?category=${currentIssue.category}&limit=4`);
+      // Filter out the current issue
+      const filtered = data.filter((i: Issue) => i._id !== currentIssue._id).slice(0, 3);
+      setRelatedIssues(filtered);
+    } catch (err) {
+      console.error("Error fetching related issues:", err);
+    } finally {
+      setLoadingRelated(false);
+    }
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: `${t('details.share_title')}: ${issue?.title}`,
+      text: `${t('details.share_desc')} ${issue?.title}`,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error("Error sharing:", err);
+      }
+    } else {
+      setIsShareModalOpen(true);
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success(t('details.share_copied'));
+    setIsShareModalOpen(false);
   };
 
   const handleVote = async () => {
@@ -94,7 +158,7 @@ const IssueDetails: React.FC = () => {
       await api.delete(`/issues/${id}`);
       navigate("/issues");
     } catch (err: any) {
-      showToast(err.response?.data?.message || "Failed to delete issue", "error");
+      toast.error(err.response?.data?.message || "Failed to delete issue");
     }
   };
 
@@ -102,9 +166,21 @@ const IssueDetails: React.FC = () => {
     try {
       await api.put(`/issues/${id}/status`, { status: newStatus });
       fetchIssue();
-      showToast(t('details.status_updated', { status: t(`issues.status.${newStatus}`) }));
+      toast.success(t('details.status_updated', { status: t(`issues.status.${newStatus}`) }));
     } catch (err: any) {
-      showToast(err.response?.data?.message || "Failed to update status", "error");
+      toast.error(err.response?.data?.message || "Failed to update status");
+    }
+  };
+
+  const openStatusModal = (status: Issue["status"]) => {
+    setStatusToUpdate(status);
+    setIsStatusModalOpen(true);
+  };
+
+  const confirmStatusUpdate = () => {
+    if (statusToUpdate) {
+      handleStatusUpdate(statusToUpdate);
+      setIsStatusModalOpen(false);
     }
   };
 
@@ -168,6 +244,15 @@ const IssueDetails: React.FC = () => {
                     <span>{issue.votes} {t('details.votes')}</span>
                   </button>
 
+                  <button
+                    onClick={handleShare}
+                    className="flex items-center space-x-2 px-6 py-2.5 text-gray-600 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                    title={t('details.share_title')}
+                  >
+                    <Share2 className="h-5 w-5" />
+                    <span className="font-bold">{t('details.share_button')}</span>
+                  </button>
+
                   {user?.role === "admin" && (
                     <button
                       onClick={() => setIsDeleteModalOpen(true)}
@@ -204,6 +289,46 @@ const IssueDetails: React.FC = () => {
                 <p className="text-gray-600 leading-relaxed">{issue.description}</p>
               </div>
 
+              {/* NLP Analysis Results */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <div className="flex items-center space-x-3">
+                  <AlertTriangle className={`h-6 w-6 ${
+                    issue.severity === 'high' ? 'text-red-500' : 
+                    issue.severity === 'medium' ? 'text-yellow-500' : 'text-blue-500'
+                  }`} />
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Severity</p>
+                    <p className="text-sm font-bold text-gray-900 capitalize">{issue.severity}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <TrendingUp className={`h-6 w-6 ${
+                    issue.urgency === 'critical' ? 'text-red-600 animate-pulse' :
+                    issue.urgency === 'high' ? 'text-red-500' : 
+                    issue.urgency === 'medium' ? 'text-yellow-500' : 'text-blue-500'
+                  }`} />
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Urgency</p>
+                    <p className="text-sm font-bold text-gray-900 capitalize">{issue.urgency}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <CheckCircle2 className="h-6 w-6 text-purple-500" />
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Keywords</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {issue.keywords && issue.keywords.length > 0 ? issue.keywords.map((kw, idx) => (
+                        <span key={idx} className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">
+                          {kw}
+                        </span>
+                      )) : <span className="text-xs text-gray-400 italic">None</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-gray-50 rounded-2xl border border-gray-100">
                 <div>
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Issue Location</h4>
@@ -232,7 +357,7 @@ const IssueDetails: React.FC = () => {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
-                  onClick={() => handleStatusUpdate("pending")}
+                  onClick={() => openStatusModal("pending")}
                   className={`flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold transition-all ${
                     issue.status === "pending" 
                       ? "bg-yellow-100 text-yellow-800 ring-2 ring-yellow-200" 
@@ -243,7 +368,7 @@ const IssueDetails: React.FC = () => {
                   <span>{t('details.set_pending')}</span>
                 </button>
                 <button
-                  onClick={() => handleStatusUpdate("in-progress")}
+                  onClick={() => openStatusModal("in-progress")}
                   className={`flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold transition-all ${
                     issue.status === "in-progress" 
                       ? "bg-blue-100 text-blue-800 ring-2 ring-blue-200" 
@@ -254,7 +379,7 @@ const IssueDetails: React.FC = () => {
                   <span>{t('details.set_progress')}</span>
                 </button>
                 <button
-                  onClick={() => handleStatusUpdate("resolved")}
+                  onClick={() => openStatusModal("resolved")}
                   className={`flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold transition-all ${
                     issue.status === "resolved" 
                       ? "bg-green-100 text-green-800 ring-2 ring-green-200" 
@@ -265,7 +390,7 @@ const IssueDetails: React.FC = () => {
                   <span>{t('details.set_resolved')}</span>
                 </button>
                 <button
-                  onClick={() => handleStatusUpdate("rejected")}
+                  onClick={() => openStatusModal("rejected")}
                   className={`flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold transition-all ${
                     issue.status === "rejected" 
                       ? "bg-red-100 text-red-800 ring-2 ring-red-200" 
@@ -334,6 +459,127 @@ const IssueDetails: React.FC = () => {
         </div>
       </div>
 
+      {/* Related Issues Section */}
+      {relatedIssues.length > 0 && (
+        <div className="mt-16">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-bold text-gray-900">Related Issues</h2>
+            <Link to="/issues" className="text-blue-600 font-bold hover:underline flex items-center text-sm">
+              View All <ArrowLeft className="h-4 w-4 ml-1 rotate-180" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {relatedIssues.map((relatedIssue) => (
+              <motion.div
+                key={relatedIssue._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group"
+              >
+                <Link to={`/issues/${relatedIssue._id}`}>
+                  <div className="relative h-48 overflow-hidden">
+                    <img
+                      src={relatedIssue.image_url}
+                      alt={relatedIssue.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-3 left-3">
+                      <span className="bg-black/60 backdrop-blur-md text-white text-[10px] uppercase tracking-widest px-2 py-1 rounded font-bold">
+                        {t(`issues.category.${relatedIssue.category}`, { defaultValue: relatedIssue.category })}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <h4 className="font-bold text-gray-900 mb-2 line-clamp-1">{relatedIssue.title}</h4>
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="flex items-center text-xs text-gray-500">
+                        <ThumbsUp className="h-3 w-3 mr-1" />
+                        {relatedIssue.votes}
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                        relatedIssue.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                        relatedIssue.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {t(`issues.status.${relatedIssue.status}`)}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      <Modal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        title={t('details.share_title')}
+      >
+        <div className="space-y-6">
+          <p className="text-gray-600 text-sm">{t('details.share_desc')}</p>
+          
+          <div className="grid grid-cols-3 gap-4">
+            <a
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`${t('details.share_title')}: ${issue.title}`)}&url=${encodeURIComponent(window.location.href)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-center p-4 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+            >
+              <Twitter className="h-6 w-6 mb-2" />
+              <span className="text-xs font-bold">{t('details.share_twitter')}</span>
+            </a>
+            <a
+              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-center p-4 rounded-xl bg-blue-700 text-white hover:bg-blue-800 transition-colors"
+            >
+              <Facebook className="h-6 w-6 mb-2" />
+              <span className="text-xs font-bold">{t('details.share_facebook')}</span>
+            </a>
+            <a
+              href={`mailto:?subject=${encodeURIComponent(`${t('details.share_title')}: ${issue.title}`)}&body=${encodeURIComponent(`${t('details.share_desc')} ${window.location.href}`)}`}
+              className="flex flex-col items-center justify-center p-4 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+            >
+              <Mail className="h-6 w-6 mb-2" />
+              <span className="text-xs font-bold">{t('details.share_email')}</span>
+            </a>
+          </div>
+
+          <div className="pt-4 border-t border-gray-100">
+            <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-xl border border-gray-200">
+              <input
+                type="text"
+                readOnly
+                value={window.location.href}
+                className="flex-1 bg-transparent text-xs text-gray-500 outline-none"
+              />
+              <button
+                onClick={copyToClipboard}
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title={t('details.share_copy')}
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        onConfirm={confirmStatusUpdate}
+        title="Update Issue Status"
+        message={`Are you sure you want to update the status of this issue to "${statusToUpdate ? t(`issues.status.${statusToUpdate}`) : ''}"? This will notify the reporter and all voters.`}
+        confirmText="Update Status"
+        type="primary"
+      />
+
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
@@ -345,13 +591,6 @@ const IssueDetails: React.FC = () => {
       />
 
       <AnimatePresence>
-        {toast && (
-          <Toast
-            message={toast.message}
-            type={toast.type}
-            onClose={() => setToast(null)}
-          />
-        )}
       </AnimatePresence>
     </div>
   );

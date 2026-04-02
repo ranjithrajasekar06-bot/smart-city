@@ -9,6 +9,7 @@ import { NotificationProvider } from "./context/NotificationContext";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { Toaster } from "sonner";
+import SyncManager from "./components/SyncManager";
 
 // Pages
 import Home from "./pages/Home";
@@ -20,6 +21,7 @@ import ReportIssue from "./pages/ReportIssue";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminReports from "./pages/AdminReports";
 import Profile from "./pages/Profile";
+import Notifications from "./pages/Notifications";
 
 export default function App() {
   return (
@@ -28,6 +30,7 @@ export default function App() {
         <Router>
           <div className="min-h-screen bg-gray-50 flex flex-col">
             <Toaster position="top-right" richColors />
+            <SyncManager />
             <Navbar />
             <main className="flex-grow">
               <Routes>
@@ -41,6 +44,7 @@ export default function App() {
                 <Route element={<ProtectedRoute />}>
                   <Route path="/report" element={<ReportIssue />} />
                   <Route path="/profile" element={<Profile />} />
+                  <Route path="/notifications" element={<Notifications />} />
                 </Route>
 
                 {/* Admin Routes */}

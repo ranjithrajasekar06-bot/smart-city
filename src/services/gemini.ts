@@ -42,6 +42,36 @@ export const analyzeIssueImage = async (base64Image: string) => {
   }
 };
 
+export const analyzeIssueDescription = async (description: string) => {
+  try {
+    const ai = getAI();
+    const model = "gemini-3-flash-preview";
+    
+    const prompt = `Analyze the following city infrastructure complaint description. 
+    Provide a JSON response with the following fields:
+    - 'urgency': (low, medium, high, critical)
+    - 'severity': (low, medium, high)
+    - 'keywords': (array of extracted keywords like 'dangerous', 'urgent', 'leak', etc.)
+    - 'summary': (a very short summary of the issue)
+    - 'is_emergency': (boolean, true if it's a life-threatening emergency)
+
+    Description: "${description}"`;
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Gemini Description Analysis Error:", error);
+    throw error;
+  }
+};
+
 export const getCityInsights = async (analyticsData: any) => {
   try {
     const ai = getAI();
