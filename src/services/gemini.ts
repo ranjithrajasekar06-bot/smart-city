@@ -53,7 +53,7 @@ export const analyzeIssueDescription = async (description: string) => {
     - 'severity': (low, medium, high)
     - 'keywords': (array of extracted keywords like 'dangerous', 'urgent', 'leak', etc.)
     - 'summary': (a very short summary of the issue)
-    - 'is_emergency': (boolean, true if it's a life-threatening emergency)
+    - 'is_emergency': (boolean, true if the issue described is a life-threatening emergency or requires immediate first responder intervention, such as a gas leak, live power lines down, or major structural collapse)
 
     Description: "${description}"`;
 

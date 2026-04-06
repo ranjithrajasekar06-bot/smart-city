@@ -93,8 +93,21 @@ api.interceptors.response.use(
       }
       
       console.error("API: Max retries reached for server startup. Giving up.");
-      const startupError = new Error("Server is starting up");
+      let serverMessage = "The server is starting up. Please wait a moment and try again.";
+      
+      if (error.response?.data?.message) {
+        serverMessage = error.response.data.message;
+      } else if (isGatewayError) {
+        serverMessage = "Server is temporarily unavailable (Gateway Error). Please try again in a moment.";
+      } else if (isNetworkError) {
+        serverMessage = "Network error. Please check your connection or wait for the server to start.";
+      } else if (isStartingHtml) {
+        serverMessage = "The application is taking longer than expected to start. Please try refreshing the page.";
+      }
+      
+      const startupError = new Error(serverMessage);
       (startupError as any).isStarting = true;
+      (startupError as any).response = error.response;
       return Promise.reject(startupError);
     }
 

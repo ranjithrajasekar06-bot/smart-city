@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { UserPlus, Mail, Lock, User, AlertCircle } from "lucide-react";
+import { UserPlus, Mail, Lock, User, AlertCircle, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const Register: React.FC = () => {
@@ -46,7 +46,8 @@ const Register: React.FC = () => {
           await new Promise(resolve => setTimeout(resolve, 5000));
           return attemptRegister(retries - 1);
         }
-        setError(err.response?.data?.message || (err.isStarting ? "Server is starting up, please wait..." : t('auth.error_generic')));
+        const errorMessage = err.response?.data?.message || (err.isStarting ? (err.message || "The server is starting up. Please wait a moment and try again.") : t('auth.error_generic'));
+        setError(errorMessage);
       }
     };
 
@@ -55,37 +56,37 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 md:p-10 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
-            <UserPlus className="h-6 w-6 text-blue-600" />
+          <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-2xl bg-blue-600 shadow-lg shadow-blue-200">
+            <UserPlus className="h-8 w-8 text-white" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">{t('auth.register_title')}</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <h2 className="mt-8 text-center text-3xl font-black text-slate-900 tracking-tight">{t('auth.register_title')}</h2>
+          <p className="mt-3 text-center text-sm text-slate-500 font-medium">
             {t('auth.register_subtitle')}{" "}
-            <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
+            <Link to="/login" className="font-black text-blue-600 hover:text-blue-700 transition-colors">
               {t('nav.login')}
             </Link>
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 flex items-start space-x-3">
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 flex items-start space-x-3 rounded-r-xl">
             <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
-            <p className="text-sm text-red-700">{error}</p>
+            <p className="text-sm text-red-700 font-medium">{error}</p>
           </div>
         )}
 
-        <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-          <div className="space-y-4">
+        <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+          <div className="space-y-5">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="name" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
                 {t('auth.full_name')}
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <User className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
                   id="name"
@@ -94,19 +95,19 @@ const Register: React.FC = () => {
                   required
                   value={name}
                   onChange={handleChange}
-                  className="appearance-none relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="appearance-none block w-full pl-12 pr-4 py-3 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                   placeholder="John Doe"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
                 {t('auth.email_label')}
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
                   id="email"
@@ -115,14 +116,14 @@ const Register: React.FC = () => {
                   required
                   value={email}
                   onChange={handleChange}
-                  className="appearance-none relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="appearance-none block w-full pl-12 pr-4 py-3 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                   placeholder="you@example.com"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="role" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
                 {t('auth.role')}
               </label>
               <select
@@ -130,7 +131,7 @@ const Register: React.FC = () => {
                 name="role"
                 value={role}
                 onChange={handleChange}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="appearance-none block w-full px-4 py-3 border border-slate-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium bg-white"
               >
                 <option value="citizen">{t('auth.citizen')}</option>
                 <option value="admin">{t('auth.authority')}</option>
@@ -138,12 +139,12 @@ const Register: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
                 {t('auth.password_label')}
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
                   id="password"
@@ -152,19 +153,19 @@ const Register: React.FC = () => {
                   required
                   value={password}
                   onChange={handleChange}
-                  className="appearance-none relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="appearance-none block w-full pl-12 pr-4 py-3 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                   placeholder="••••••••"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="confirmPassword" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
                 {t('auth.confirm_password_label')}
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
                   id="confirmPassword"
@@ -173,7 +174,7 @@ const Register: React.FC = () => {
                   required
                   value={confirmPassword}
                   onChange={handleChange}
-                  className="appearance-none relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="appearance-none block w-full pl-12 pr-4 py-3 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                   placeholder="••••••••"
                 />
               </div>
@@ -184,9 +185,14 @@ const Register: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-black uppercase tracking-widest rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-200 active:scale-95"
             >
-              {loading ? t('auth.registering') : t('auth.register_button')}
+              {loading ? (
+                <div className="flex items-center">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('auth.registering')}
+                </div>
+              ) : t('auth.register_button')}
             </button>
           </div>
         </form>

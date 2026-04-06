@@ -41,6 +41,11 @@ async function startServer() {
     console.warn("The application may not function correctly until these are configured in the Secrets panel.");
   }
 
+  const mongoUri = process.env.MONGODB_URI;
+  if (mongoUri && (mongoUri.includes("...") || mongoUri.includes("your_mongodb_uri"))) {
+    console.error("CRITICAL: MONGODB_URI is still using a placeholder value. Please update it in the Secrets panel with your actual MongoDB connection string.");
+  }
+
   app.use(cors());
   app.use(express.json());
 

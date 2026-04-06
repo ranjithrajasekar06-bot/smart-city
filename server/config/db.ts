@@ -6,6 +6,13 @@ const connectDB = async () => {
     console.error("MONGODB_URI is not defined in environment variables");
     return false;
   }
+
+  // Check for common placeholders
+  if (uri.includes("...") || uri.includes("your_mongodb_uri") || uri.includes("mongodb+srv://user:password@cluster")) {
+    console.error("CRITICAL: MONGODB_URI appears to be a placeholder. Please configure a valid MongoDB connection string in the Secrets panel.");
+    return false;
+  }
+
   try {
     // Re-enable buffering but with a clear timeout strategy
     mongoose.set("bufferCommands", true); 

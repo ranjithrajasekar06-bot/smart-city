@@ -71,7 +71,14 @@ const resources = {
         "clear_filters": "Clear all filters",
         "details": "Details",
         "by": "by",
-        "anonymous": "Anonymous"
+        "anonymous": "Anonymous",
+        "resolution": {
+          "completed": "Completed",
+          "closed": "Closed",
+          "days": "days",
+          "soon": "Resolving soon",
+          "expected_by": "Expected by {{date}}"
+        }
       },
       "report": {
         "title": "Report a Community Issue",
@@ -277,7 +284,14 @@ const resources = {
         "clear_filters": "सभी फ़िल्टर साफ़ करें",
         "details": "विवरण",
         "by": "द्वारा",
-        "anonymous": "अनाम"
+        "anonymous": "अनाम",
+        "resolution": {
+          "completed": "पूरा हुआ",
+          "closed": "बंद",
+          "days": "दिन",
+          "soon": "जल्द ही समाधान",
+          "expected_by": "{{date}} तक अपेक्षित"
+        }
       },
       "report": {
         "title": "एक सामुदायिक मुद्दे की रिपोर्ट करें",
@@ -482,7 +496,14 @@ const resources = {
         "clear_filters": "அனைத்து வடிப்பான்களையும் நீக்கு",
         "details": "விவரங்கள்",
         "by": "வழங்கியவர்",
-        "anonymous": "பெயர் தெரியாதவர்"
+        "anonymous": "பெயர் தெரியாதவர்",
+        "resolution": {
+          "completed": "முடிக்கப்பட்டது",
+          "closed": "மூடப்பட்டது",
+          "days": "நாட்கள்",
+          "soon": "விரைவில் தீர்க்கப்படும்",
+          "expected_by": "{{date}} அன்று எதிர்பார்க்கப்படுகிறது"
+        }
       },
       "report": {
         "title": "ஒரு சமூகப் பிரச்சினையைப் புகாரளிக்கவும்",

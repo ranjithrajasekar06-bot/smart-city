@@ -71,6 +71,7 @@ const ReportIssue: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
+  const [isEmergency, setIsEmergency] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
@@ -230,7 +231,9 @@ const ReportIssue: React.FC = () => {
       }));
 
       if (textAnalysis.is_emergency) {
-        setError("This issue has been flagged as a potential emergency. Please contact emergency services if there is immediate danger.");
+        setIsEmergency(true);
+      } else {
+        setIsEmergency(false);
       }
 
       setAnalyzing(false);
@@ -408,82 +411,116 @@ const ReportIssue: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-8 border-b border-gray-100 bg-blue-50/50 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{t('report.title')}</h1>
-            <p className="text-gray-600">{t('report.subtitle')}</p>
-          </div>
-          {preview && !analyzing && (
-            <button
-              onClick={handleAIAnalysis}
-              className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:shadow-lg transition-all"
-            >
-              <Sparkles className="h-4 w-4" />
-              <span>{t('report.ai_analyze')}</span>
-            </button>
-          )}
-          {analyzing && (
-            <div className="flex items-center space-x-2 text-blue-600 font-bold text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{t('report.ai_analyzing')}</span>
+    <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
+      <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-xl shadow-blue-100/50 border border-slate-100 overflow-hidden">
+        <div className="bg-blue-600 p-8 md:p-12 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 -mt-8 -mr-8 h-32 w-32 bg-white/10 rounded-full blur-2xl" />
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-black mb-4 tracking-tight">{t('report.title')}</h1>
+              <p className="text-blue-100 text-base md:text-lg font-medium max-w-2xl">{t('report.subtitle')}</p>
             </div>
-          )}
+            <div className="flex flex-wrap gap-3">
+              {preview && !analyzing && (
+                <button
+                  type="button"
+                  onClick={handleAIAnalysis}
+                  className="flex items-center space-x-2 bg-white/20 backdrop-blur-md text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-white/30 transition-all shadow-lg border border-white/30 active:scale-95"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span>{t('report.ai_analyze')}</span>
+                </button>
+              )}
+              {analyzing && (
+                <div className="flex items-center space-x-2 bg-white/20 backdrop-blur-md text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest border border-white/30">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{t('report.ai_analyzing')}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-8">
+        <form onSubmit={handleSubmit} className="p-6 md:p-12 space-y-8 md:space-y-10">
+          {isEmergency && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-red-600 text-white p-6 rounded-2xl shadow-xl flex items-start space-x-4 border-2 border-red-400"
+            >
+              <div className="bg-white/20 p-2 rounded-xl">
+                <ShieldAlert className="h-8 w-8 text-white animate-pulse" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-black uppercase tracking-tight mb-1">Emergency Detected</h3>
+                <p className="text-sm font-medium opacity-90 leading-relaxed">
+                  Our AI analysis has identified this as a potential life-threatening emergency. 
+                  <span className="block mt-2 font-black underline decoration-2 underline-offset-4">
+                    PLEASE CALL EMERGENCY SERVICES (911/112) IMMEDIATELY IF THERE IS AN IMMEDIATE DANGER TO LIFE OR PROPERTY.
+                  </span>
+                </p>
+                <button 
+                  type="button"
+                  onClick={() => setIsEmergency(false)}
+                  className="mt-4 text-[10px] font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors border border-white/20"
+                >
+                  Dismiss Warning
+                </button>
+              </div>
+            </motion.div>
+          )}
+
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-400 p-4 flex items-start space-x-3">
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 flex items-start space-x-3 rounded-r-xl">
               <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-sm text-red-700 font-medium">{error}</p>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+            <div className="space-y-6 md:space-y-8">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('report.form.title_label')}</label>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{t('report.form.title_label')}</label>
                 <input
                   type="text"
                   required
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder={t('report.form.title_placeholder')}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Your Address</label>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Your Address</label>
                 <textarea
                   required
                   rows={2}
                   value={formData.userAddress}
                   onChange={(e) => setFormData({ ...formData, userAddress: e.target.value })}
                   placeholder="Enter your full address"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all font-medium"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Pin Code</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Pin Code</label>
                   <input
                     type="text"
                     required
                     value={formData.pinCode}
                     onChange={(e) => setFormData({ ...formData, pinCode: e.target.value })}
                     placeholder="Pin Code"
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('report.form.category_label')}</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{t('report.form.category_label')}</label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white transition-all font-medium appearance-none"
                   >
                     {categories.map(cat => (
                       <option key={cat} value={cat}>{t(`issues.category.${cat}`)}</option>
@@ -493,14 +530,14 @@ const ReportIssue: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Issue Location</label>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Issue Location</label>
                 <input
                   type="text"
                   required
                   value={formData.issueLocation}
                   onChange={(e) => setFormData({ ...formData, issueLocation: e.target.value })}
                   placeholder="Street name or landmark"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                 />
               </div>
 
@@ -510,22 +547,22 @@ const ReportIssue: React.FC = () => {
                   animate={{ opacity: 1, height: "auto" }}
                   className="space-y-2"
                 >
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Custom Category Name</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Custom Category Name</label>
                   <input
                     type="text"
                     required
                     value={formData.customCategory}
                     onChange={(e) => setFormData({ ...formData, customCategory: e.target.value })}
                     placeholder="e.g., Abandoned Vehicle"
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                   />
                 </motion.div>
               )}
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-6 md:space-y-8">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('report.form.image_label')}</label>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{t('report.form.image_label')}</label>
                 <div className="relative group">
                   <AnimatePresence mode="wait">
                     {!isCameraActive ? (
@@ -536,37 +573,27 @@ const ReportIssue: React.FC = () => {
                         exit={{ opacity: 0 }}
                         className="space-y-4"
                       >
-                        <div className="relative">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageChange}
-                            className="hidden"
-                            id="image-upload"
-                          />
-                          <label
-                            htmlFor="image-upload"
-                            className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
-                              preview ? "border-blue-400 bg-blue-50" : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
-                            }`}
-                          >
-                            {preview ? (
-                              <img src={preview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
-                            ) : (
-                              <>
-                                <Upload className="h-10 w-10 text-gray-400 mb-2 group-hover:text-blue-500" />
-                                <span className="text-sm text-gray-500 group-hover:text-blue-600 font-medium">{t('report.form.image_click')}</span>
-                              </>
-                            )}
-                          </label>
-                          {preview && (
-                            <button
-                              type="button"
-                              onClick={() => { setImage(null); setPreview(null); }}
-                              className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
+                        <div className="relative h-48 md:h-64 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-blue-400">
+                          {preview ? (
+                            <>
+                              <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => { setImage(null); setPreview(null); }}
+                                className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <label className="cursor-pointer flex flex-col items-center p-6 text-center w-full h-full">
+                              <div className="p-4 bg-white rounded-2xl shadow-sm mb-4 group-hover:scale-110 transition-transform">
+                                <Upload className="h-8 w-8 text-blue-600" />
+                              </div>
+                              <span className="text-sm font-bold text-slate-600">{t('report.form.image_click')}</span>
+                              <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">JPG, PNG up to 5MB</span>
+                              <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                            </label>
                           )}
                         </div>
                         
@@ -574,7 +601,7 @@ const ReportIssue: React.FC = () => {
                           <button
                             type="button"
                             onClick={startCamera}
-                            className="flex items-center space-x-2 text-blue-600 font-bold text-sm hover:underline"
+                            className="flex items-center space-x-2 text-blue-600 font-black text-xs uppercase tracking-widest hover:underline"
                           >
                             <Camera className="h-4 w-4" />
                             <span>Or capture real-time photo</span>
@@ -587,7 +614,7 @@ const ReportIssue: React.FC = () => {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="relative bg-black rounded-xl overflow-hidden h-64 shadow-2xl"
+                        className="relative bg-black rounded-2xl overflow-hidden h-48 md:h-64 shadow-2xl"
                       >
                         <video
                           ref={videoRef}
@@ -595,27 +622,27 @@ const ReportIssue: React.FC = () => {
                           playsInline
                           className="w-full h-full object-cover"
                         />
-                        <div className="absolute bottom-4 left-0 right-0 flex justify-center items-center space-x-6">
+                        <div className="absolute bottom-4 left-0 right-0 flex justify-center items-center space-x-4 md:space-x-6">
                           <button
                             type="button"
                             onClick={stopCamera}
-                            className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/30 transition-all"
+                            className="p-2.5 md:p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/30 transition-all"
                           >
-                            <X className="h-5 w-5" />
+                            <X className="h-4 w-4 md:h-5 md:w-5" />
                           </button>
                           <button
                             type="button"
                             onClick={capturePhoto}
-                            className="p-4 bg-white text-blue-600 rounded-full shadow-xl hover:scale-110 active:scale-95 transition-all"
+                            className="p-3.5 md:p-4 bg-white text-blue-600 rounded-full shadow-xl hover:scale-110 active:scale-95 transition-all"
                           >
-                            <Camera className="h-6 w-6" />
+                            <Camera className="h-5 w-5 md:h-6 md:w-6" />
                           </button>
                           <button
                             type="button"
                             onClick={() => { stopCamera(); startCamera(); }}
-                            className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/30 transition-all"
+                            className="p-2.5 md:p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/30 transition-all"
                           >
-                            <RefreshCcw className="h-5 w-5" />
+                            <RefreshCcw className="h-4 w-4 md:h-5 md:w-5" />
                           </button>
                         </div>
                         <canvas ref={canvasRef} className="hidden" />
@@ -626,11 +653,11 @@ const ReportIssue: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center">
                   <MapPin className="h-4 w-4 mr-1 text-blue-600" />
                   {t('report.form.location_label')}
                 </label>
-                <div className="relative h-48 rounded-xl overflow-hidden border border-gray-200 shadow-inner">
+                <div className="relative h-48 md:h-56 rounded-2xl overflow-hidden border border-slate-200 shadow-inner">
                   {position && (
                     <MapContainer center={position} zoom={13} style={{ height: "100%", width: "100%" }}>
                       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -642,7 +669,7 @@ const ReportIssue: React.FC = () => {
                     type="button"
                     onClick={handleLocateMe}
                     disabled={isLocating}
-                    className="absolute bottom-4 right-4 z-[1000] bg-white px-3 py-2 rounded-full shadow-lg hover:bg-gray-50 transition-all text-blue-600 border border-gray-100 flex items-center space-x-2"
+                    className="absolute bottom-4 right-4 z-[1000] bg-white px-3 py-2 rounded-full shadow-lg hover:bg-slate-50 transition-all text-blue-600 border border-slate-100 flex items-center space-x-2"
                     title={t('report.locate_me')}
                   >
                     {isLocating ? (
@@ -650,67 +677,92 @@ const ReportIssue: React.FC = () => {
                     ) : (
                       <Navigation className="h-4 w-4" />
                     )}
-                    <span className="text-xs font-bold">{t('report.locate_me')}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">{t('report.locate_me')}</span>
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-2 italic">{t('report.form.location_hint')}</p>
+                <p className="text-[10px] text-slate-400 mt-2 italic">{t('report.form.location_hint')}</p>
               </div>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('report.form.desc_label')}</label>
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{t('report.form.desc_label')}</label>
             <textarea
               required
               rows={4}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder={t('report.form.desc_placeholder')}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all font-medium"
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Severity</label>
+              <div className="flex items-center space-x-2">
+                <select
+                  value={formData.severity}
+                  onChange={(e) => setFormData({ ...formData, severity: e.target.value as any })}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white transition-all font-medium appearance-none"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+                <div className={`p-3 rounded-xl ${
+                  formData.severity === 'high' ? 'bg-red-100 text-red-600' : 
+                  formData.severity === 'medium' ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600'
+                }`}>
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 italic">How severe is the physical damage or impact?</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Urgency</label>
+              <div className="flex items-center space-x-2">
+                <select
+                  value={formData.urgency}
+                  onChange={(e) => setFormData({ ...formData, urgency: e.target.value as any })}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white transition-all font-medium appearance-none"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+                <div className={`p-3 rounded-xl ${
+                  formData.urgency === 'critical' ? 'bg-red-200 text-red-700 animate-pulse' :
+                  formData.urgency === 'high' ? 'bg-red-100 text-red-600' : 
+                  formData.urgency === 'medium' ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600'
+                }`}>
+                  <Zap className="h-5 w-5" />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 italic">How quickly does this need to be addressed?</p>
+            </div>
           </div>
 
           {/* NLP Analysis Results */}
           <AnimatePresence>
-            {(formData.severity !== "medium" || formData.urgency !== "medium" || formData.keywords.length > 0) && (
+            {(formData.keywords.length > 0) && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100"
+                className="p-4 bg-slate-50 rounded-xl border border-slate-100"
               >
-                <div className="flex items-center space-x-3">
-                  <ShieldAlert className={`h-5 w-5 ${
-                    formData.severity === 'high' ? 'text-red-500' : 
-                    formData.severity === 'medium' ? 'text-yellow-500' : 'text-blue-500'
-                  }`} />
-                  <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Auto-Severity</p>
-                    <p className="text-sm font-bold text-gray-900 capitalize">{formData.severity}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                  <Zap className={`h-5 w-5 ${
-                    formData.urgency === 'critical' ? 'text-red-600 animate-pulse' :
-                    formData.urgency === 'high' ? 'text-red-500' : 
-                    formData.urgency === 'medium' ? 'text-yellow-500' : 'text-blue-500'
-                  }`} />
-                  <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Urgency Level</p>
-                    <p className="text-sm font-bold text-gray-900 capitalize">{formData.urgency}</p>
-                  </div>
-                </div>
-
                 <div className="flex items-center space-x-3">
                   <Tag className="h-5 w-5 text-purple-500" />
                   <div className="flex-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Keywords</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {formData.keywords.length > 0 ? formData.keywords.map((kw, idx) => (
-                        <span key={idx} className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Detected Keywords</p>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {formData.keywords.map((kw, idx) => (
+                        <span key={idx} className="text-[9px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-md font-black uppercase tracking-wider">
                           {kw}
                         </span>
-                      )) : <span className="text-xs text-gray-400 italic">None detected</span>}
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -718,11 +770,11 @@ const ReportIssue: React.FC = () => {
             )}
           </AnimatePresence>
 
-          <div className="pt-6 border-t border-gray-100 flex justify-end">
+          <div className="pt-6 border-t border-slate-100">
             <button
               type="submit"
               disabled={loading || analyzing}
-              className="bg-blue-600 text-white px-10 py-3 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              className="w-full bg-blue-600 text-white px-8 py-4 rounded-xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center active:scale-95"
             >
               {loading ? (
                 <>

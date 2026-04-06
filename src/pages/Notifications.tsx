@@ -55,30 +55,30 @@ const Notifications: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
+        <div className="space-y-1">
           <button 
             onClick={() => navigate(-1)}
-            className="flex items-center text-gray-500 hover:text-gray-700 mb-2 transition-colors text-sm font-medium"
+            className="flex items-center text-slate-400 hover:text-slate-600 mb-3 transition-colors text-xs font-black uppercase tracking-widest"
           >
-            <ArrowLeft className="h-4 w-4 mr-1" />
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
             Back
           </button>
-          <h1 className="text-3xl font-extrabold text-gray-900 flex items-center">
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 flex items-center tracking-tight">
             Notifications
             {unreadCount > 0 && (
-              <span className="ml-3 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+              <span className="ml-4 bg-blue-600 text-white text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider shadow-lg shadow-blue-200">
                 {unreadCount} New
               </span>
             )}
           </h1>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center">
           {unreadCount > 0 && (
             <button
               onClick={markAllAsRead}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-100 transition-colors"
+              className="flex items-center space-x-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95 w-full md:w-auto justify-center"
             >
               <CheckSquare className="h-4 w-4" />
               <span>Mark all as read</span>
@@ -87,23 +87,23 @@ const Notifications: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex items-center space-x-4 overflow-x-auto no-scrollbar">
-          <div className="flex items-center text-gray-400 mr-2">
+      <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        <div className="p-4 md:p-6 border-b border-slate-50 bg-slate-50/30 flex items-center space-x-4 overflow-x-auto no-scrollbar scroll-smooth">
+          <div className="flex items-center text-slate-400 mr-2 shrink-0">
             <Filter className="h-4 w-4 mr-2" />
-            <span className="text-xs font-bold uppercase tracking-widest">Filter</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">Filter</span>
           </div>
           {["all", "status_change", "resolved", "nearby_issue"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`whitespace-nowrap text-xs px-4 py-2 rounded-xl font-bold transition-all ${
+              className={`whitespace-nowrap text-[10px] px-5 py-2.5 rounded-xl font-black uppercase tracking-widest transition-all shrink-0 ${
                 filter === f 
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-100" 
-                  : "bg-white text-gray-500 hover:bg-gray-100 border border-gray-100"
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-200" 
+                  : "bg-white text-slate-500 hover:bg-slate-100 border border-slate-100"
               }`}
             >
-              {f === "all" ? "All Notifications" : f.replace("_", " ").toUpperCase()}
+              {f === "all" ? "All" : f.replace("_", " ")}
             </button>
           ))}
         </div>

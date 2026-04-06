@@ -91,14 +91,26 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         // Show browser notification
         showBrowserNotification(notification);
 
-        toast.info(notification.title, {
-          description: notification.message,
-          duration: 5000,
-          action: notification.issue_id ? {
-            label: "View",
-            onClick: () => window.location.href = `/issues/${notification.issue_id}`
-          } : undefined
-        });
+        // Special handling for urgent notifications
+        if (notification.message.toLowerCase().includes("urgent") || notification.title.toLowerCase().includes("urgent")) {
+          toast.error(notification.title, {
+            description: notification.message,
+            duration: 10000,
+            action: notification.issue_id ? {
+              label: "View",
+              onClick: () => window.location.href = `/issues/${notification.issue_id}`
+            } : undefined
+          });
+        } else {
+          toast.info(notification.title, {
+            description: notification.message,
+            duration: 5000,
+            action: notification.issue_id ? {
+              label: "View",
+              onClick: () => window.location.href = `/issues/${notification.issue_id}`
+            } : undefined
+          });
+        }
       });
     }
 

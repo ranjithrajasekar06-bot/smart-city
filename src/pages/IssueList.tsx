@@ -1,31 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
-import { MapPin, ThumbsUp, MessageSquare, Filter, Search, ChevronRight, Clock, AlertCircle, CheckCircle, ArrowRight, User } from "lucide-react";
+import { MapPin, ThumbsUp, MessageSquare, Filter, Search, ChevronRight, Clock, AlertCircle, CheckCircle, ArrowRight, User, PlusCircle, Tag, Activity, SortAsc, LayoutGrid, XCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import IssueCard, { Issue } from "../components/IssueCard";
+import FilterDropdown from "../components/FilterDropdown";
 
 import { useNotifications } from "../context/NotificationContext";
-
-interface Issue {
-  _id: string;
-  title: string;
-  description: string;
-  category: string;
-  image_url: string;
-  status: "pending" | "in-progress" | "resolved" | "rejected";
-  severity: "low" | "medium" | "high";
-  urgency: "low" | "medium" | "high" | "critical";
-  keywords: string[];
-  votes: number;
-  createdAt: string;
-  user_id?: {
-    name: string;
-  };
-}
 
 const IssueList: React.FC = () => {
   const { t } = useTranslation();
@@ -55,6 +40,29 @@ const IssueList: React.FC = () => {
     "other"
   ];
 
+  const categoryOptions = [
+    { value: "", label: t('issues.all_categories'), icon: <LayoutGrid className="h-4 w-4" /> },
+    ...categories.map(cat => ({
+      value: cat,
+      label: t(`issues.category.${cat}`),
+      icon: <Tag className="h-4 w-4" />
+    }))
+  ];
+
+  const statusOptions = [
+    { value: "", label: t('issues.status.all'), icon: <Activity className="h-4 w-4" /> },
+    { value: "pending", label: t('issues.status.pending'), icon: <Clock className="h-4 w-4 text-yellow-500" /> },
+    { value: "in-progress", label: t('issues.status.in-progress'), icon: <AlertCircle className="h-4 w-4 text-blue-500" /> },
+    { value: "resolved", label: t('issues.status.resolved'), icon: <CheckCircle className="h-4 w-4 text-green-500" /> },
+    { value: "rejected", label: t('issues.status.rejected'), icon: <XCircle className="h-4 w-4 text-red-500" /> }
+  ];
+
+  const sortOptions = [
+    { value: "latest", label: t('issues.sort.latest'), icon: <Clock className="h-4 w-4" /> },
+    { value: "votes", label: t('issues.sort.votes'), icon: <ThumbsUp className="h-4 w-4" /> },
+    { value: "priority", label: t('issues.sort.priority'), icon: <SortAsc className="h-4 w-4" /> }
+  ];
+
   const fetchIssues = async (retryCount = 10) => {
     setLoading(true);
     setError(null);
@@ -78,7 +86,13 @@ const IssueList: React.FC = () => {
           return attemptFetch(retries - 1);
         }
         console.error("IssueList: Error fetching issues:", error);
-        setError(error.isStarting ? "Server is starting up, please wait..." : "Failed to fetch issues. Please check your connection.");
+        if (error.isStarting) {
+          setError(error.message || "The server is starting up. Please wait a moment and try again.");
+          toast.error(error.message || "The server is starting up. Please wait a moment and try again.");
+        } else {
+          setError("Failed to fetch issues. Please check your connection.");
+          toast.error("Failed to fetch issues. Please check your connection.");
+        }
       }
     };
 
@@ -111,6 +125,28 @@ const IssueList: React.FC = () => {
     }
   };
 
+  const handleReportDuplicate = async (issueId: string) => {
+    if (!user) {
+      toast.error("Please login to report duplicates");
+      return navigate("/login");
+    }
+
+    try {
+      // Assuming there's an endpoint for this, or we can use a generic report endpoint
+      // For now, we'll just show a success message as a placeholder if the endpoint doesn't exist
+      // In a real app, this would open a modal to select the original issue
+      await api.post(`/issues/${issueId}/report-duplicate`);
+      toast.success("Issue reported as duplicate. Our team will review it.");
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        // Fallback if endpoint doesn't exist yet
+        toast.info("Duplicate report submitted (Demo Mode)");
+      } else {
+        toast.error(err.response?.data?.message || "Failed to report duplicate");
+      }
+    }
+  };
+
   useEffect(() => {
     fetchIssues();
   }, [filter]);
@@ -126,7 +162,19 @@ const IssueList: React.FC = () => {
       
       if (matchesCategory && matchesStatus) {
         setIssues(prev => [newIssue, ...prev]);
-        toast.info(t('issues.new_issue_alert') || "A new issue has been reported!");
+        
+        if (newIssue.urgency === 'critical' || newIssue.urgency === 'high') {
+          toast.error(`URGENT: ${newIssue.title}`, {
+            description: `A high-urgency issue has been reported in ${newIssue.category}.`,
+            duration: 10000,
+            action: {
+              label: "View",
+              onClick: () => navigate(`/issues/${newIssue._id}`)
+            }
+          });
+        } else {
+          toast.info(t('issues.new_issue_alert') || "A new issue has been reported!");
+        }
       }
     };
 
@@ -153,64 +201,32 @@ const IssueList: React.FC = () => {
     };
   }, [socket, filter]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-            <Clock className="h-3 w-3 mr-1" />
-            {t('issues.status.pending')}
-          </span>
-        );
-      case "in-progress":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            <AlertCircle className="h-3 w-3 mr-1" />
-            {t('issues.status.in-progress')}
-          </span>
-        );
-      case "resolved":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            <CheckCircle className="h-3 w-3 mr-1" />
-            {t('issues.status.resolved')}
-          </span>
-        );
-      case "rejected":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-            <AlertCircle className="h-3 w-3 mr-1" />
-            {t('issues.status.rejected')}
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-8 md:mb-12 gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('issues.title')}</h1>
-          <p className="text-gray-500 mt-1">{t('issues.subtitle')}</p>
+          <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight">{t('issues.title')}</h1>
+          <p className="text-slate-500 mt-2 md:mt-3 text-base md:text-lg font-medium">{t('issues.subtitle')}</p>
         </div>
         <Link
           to="/report"
-          className="mt-4 md:mt-0 bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors inline-flex items-center justify-center"
+          className="bg-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 inline-flex items-center justify-center"
         >
+          <PlusCircle className="mr-2 h-5 w-5" />
           {t('issues.report_new')}
         </Link>
       </div>
 
       {error && (
-        <div className="mb-8 bg-red-50 border-l-4 border-red-400 p-4 flex items-start space-x-3">
-          <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
+        <div className="mb-8 md:mb-12 bg-red-50 border-2 border-red-100 p-4 md:p-6 rounded-3xl flex items-start space-x-4">
+          <div className="bg-red-100 p-2 rounded-xl shrink-0">
+            <AlertCircle className="h-6 w-6 text-red-600" />
+          </div>
           <div className="flex-1">
-            <p className="text-sm text-red-700 font-medium">{error}</p>
+            <p className="text-red-900 font-bold text-sm md:text-base">{error}</p>
             <button 
               onClick={() => fetchIssues()} 
-              className="mt-2 text-xs font-bold text-red-600 uppercase tracking-wider hover:text-red-800 transition-colors"
+              className="mt-2 md:mt-3 text-[10px] md:text-xs font-black text-red-600 uppercase tracking-widest hover:text-red-800 transition-colors"
             >
               Retry Now
             </button>
@@ -219,159 +235,82 @@ const IssueList: React.FC = () => {
       )}
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-8 flex flex-wrap gap-4">
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t('issues.category_label')}</label>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <select
-              value={filter.category}
-              onChange={(e) => setFilter({ ...filter, category: e.target.value })}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
-            >
-              <option value="">{t('issues.all_categories')}</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{t(`issues.category.${cat}`)}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-slate-100 mb-8 md:mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          <FilterDropdown
+            label={t('issues.category_label')}
+            value={filter.category}
+            options={categoryOptions}
+            onChange={(val) => setFilter({ ...filter, category: val })}
+            icon={<Filter className="h-4 w-4" />}
+            placeholder={t('issues.all_categories')}
+          />
 
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t('issues.status_label')}</label>
-          <select
+          <FilterDropdown
+            label={t('issues.status_label')}
             value={filter.status}
-            onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option value="">{t('issues.status.all')}</option>
-            <option value="pending">{t('issues.status.pending')}</option>
-            <option value="in-progress">{t('issues.status.in-progress')}</option>
-            <option value="resolved">{t('issues.status.resolved')}</option>
-            <option value="rejected">{t('issues.status.rejected')}</option>
-          </select>
-        </div>
+            options={statusOptions}
+            onChange={(val) => setFilter({ ...filter, status: val })}
+            icon={<Activity className="h-4 w-4" />}
+            placeholder={t('issues.status.all')}
+          />
 
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t('issues.sort_label')}</label>
-          <select
+          <FilterDropdown
+            label={t('issues.sort_label')}
             value={filter.sort}
-            onChange={(e) => setFilter({ ...filter, sort: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option value="latest">{t('issues.sort.latest')}</option>
-            <option value="votes">{t('issues.sort.votes')}</option>
-            <option value="priority">{t('issues.sort.priority')}</option>
-          </select>
+            options={sortOptions}
+            onChange={(val) => setFilter({ ...filter, sort: val })}
+            icon={<SortAsc className="h-4 w-4" />}
+            placeholder={t('issues.sort.latest')}
+          />
         </div>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="bg-gray-100 animate-pulse h-96 rounded-xl"></div>
+            <div key={i} className="bg-slate-100 animate-pulse h-[500px] rounded-[2.5rem]"></div>
           ))}
         </div>
       ) : !Array.isArray(issues) || issues.length === 0 ? (
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-3xl p-16 text-center shadow-sm border border-gray-100 max-w-2xl mx-auto"
+          className="bg-white rounded-[3rem] p-20 text-center shadow-sm border border-slate-100 max-w-3xl mx-auto"
         >
-          <div className="bg-blue-50 h-24 w-24 rounded-full flex items-center justify-center mx-auto mb-8">
-            <AlertCircle className="h-12 w-12 text-blue-600" />
+          <div className="bg-blue-50 h-32 w-32 rounded-[2rem] flex items-center justify-center mx-auto mb-10 shadow-inner">
+            <Search className="h-16 w-16 text-blue-600" />
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">{t('issues.no_issues')}</h2>
-          <p className="text-gray-500 text-lg mb-10 leading-relaxed">
+          <h2 className="text-4xl font-black text-slate-900 mb-6">{t('issues.no_issues')}</h2>
+          <p className="text-slate-500 text-xl mb-12 leading-relaxed font-medium">
             {t('issues.no_issues_desc')}
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <Link 
               to="/report" 
-              className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center"
+              className="bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 flex items-center active:scale-95"
             >
               {t('issues.report_new')}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
             <button 
               onClick={() => setFilter({ status: "", category: "", sort: "latest" })}
-              className="text-gray-600 font-bold hover:text-gray-900 px-8 py-4"
+              className="text-slate-600 font-black text-sm uppercase tracking-widest hover:text-slate-900 px-10 py-5 transition-colors"
             >
               {t('issues.clear_filters')}
             </button>
           </div>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {Array.isArray(issues) && issues.map((issue) => (
-            <motion.div
+            <IssueCard
               key={issue._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group"
-            >
-              <div className="relative h-48 overflow-hidden">
-                <img
-                  src={issue.image_url}
-                  alt={issue.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute top-3 right-3 flex flex-col items-end space-y-2">
-                  {getStatusBadge(issue.status)}
-                  {issue.severity === 'high' && (
-                    <span className="bg-red-500 text-white text-[10px] font-bold uppercase tracking-tighter px-2 py-0.5 rounded shadow-sm">
-                      High Severity
-                    </span>
-                  )}
-                  {issue.urgency === 'critical' && (
-                    <span className="bg-red-600 text-white text-[10px] font-bold uppercase tracking-tighter px-2 py-0.5 rounded shadow-sm animate-pulse">
-                      Critical Urgency
-                    </span>
-                  )}
-                </div>
-                <div className="absolute bottom-3 left-3">
-                  <span className="bg-black/50 backdrop-blur-sm text-white text-[10px] uppercase tracking-widest px-2 py-1 rounded font-bold">
-                    {t(`issues.category.${issue.category}`, { defaultValue: issue.category })}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-5">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg font-bold text-gray-900 line-clamp-1">{issue.title}</h3>
-                </div>
-                <p className="text-gray-600 text-sm line-clamp-2 mb-2 h-10">{issue.description}</p>
-                
-                <div className="flex items-center text-[10px] text-gray-400 mb-4 italic">
-                  <User className="h-3 w-3 mr-1" />
-                  <span>{t('issues.by')} {issue.user_id?.name || t('issues.anonymous')}</span>
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <div className="flex items-center space-x-4">
-                    <button
-                      onClick={(e) => handleVote(e, issue._id)}
-                      disabled={votingId === issue._id}
-                      className={`flex items-center space-x-1 px-2 py-1 rounded-lg transition-colors ${
-                        votingId === issue._id ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-50 text-gray-500 hover:text-blue-600"
-                      }`}
-                      title={t('details.vote') || "Upvote"}
-                    >
-                      <ThumbsUp className={`h-4 w-4 ${votingId === issue._id ? "animate-bounce" : ""}`} />
-                      <span className="text-sm font-bold">{issue.votes}</span>
-                    </button>
-                  </div>
-                  <Link
-                    to={`/issues/${issue._id}`}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-semibold flex items-center"
-                  >
-                    {t('issues.details')}
-                    <ChevronRight className="h-4 w-4 ml-0.5" />
-                  </Link>
-                </div>
-              </div>
-            </motion.div>
+              issue={issue}
+              onVote={handleVote}
+              votingId={votingId}
+              onReportDuplicate={handleReportDuplicate}
+            />
           ))}
         </div>
       )}

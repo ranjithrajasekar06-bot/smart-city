@@ -30,6 +30,9 @@ interface Issue {
   title: string;
   status: string;
   category: string;
+  severity: string;
+  urgency: string;
+  urgency_verified?: boolean;
   createdAt: string;
   votes: number;
 }
@@ -87,17 +90,32 @@ const AdminDashboard: React.FC = () => {
     try {
       await api.put(`/issues/${issueId}/status`, { status });
       // Refresh data
-      const [analyticsRes, issuesRes] = await Promise.all([
-        api.get("/issues/analytics"),
-        api.get(`/issues?status=${reviewStatus}&limit=10`)
-      ]);
-      setAnalytics(analyticsRes.data);
-      setRecentIssues(issuesRes.data);
+      refreshData();
       toast.success("Issue status updated successfully!");
     } catch (error) {
       console.error("Error updating issue status:", error);
       toast.error("Failed to update issue status");
     }
+  };
+
+  const handleUrgencyAction = async (issueId: string, urgency: string, verified: boolean) => {
+    try {
+      await api.put(`/issues/${issueId}/urgency`, { urgency, urgency_verified: verified });
+      refreshData();
+      toast.success("Urgency verified successfully!");
+    } catch (error) {
+      console.error("Error updating urgency:", error);
+      toast.error("Failed to verify urgency");
+    }
+  };
+
+  const refreshData = async () => {
+    const [analyticsRes, issuesRes] = await Promise.all([
+      api.get("/issues/analytics"),
+      api.get(`/issues?status=${reviewStatus}&limit=10`)
+    ]);
+    setAnalytics(analyticsRes.data);
+    setRecentIssues(issuesRes.data);
   };
 
   if (loading) {
@@ -124,38 +142,38 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <LayoutDashboard className="h-6 w-6 text-blue-600" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
+        <div className="flex items-center space-x-4">
+          <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200">
+            <LayoutDashboard className="h-7 w-7 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('admin.title')}</h1>
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">{t('admin.title')}</h1>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button 
             onClick={() => navigate("/admin/reports")}
-            className="flex items-center space-x-2 bg-white border border-gray-200 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-all"
+            className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-white border border-slate-200 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95"
           >
             <FileText className="h-4 w-4 text-blue-600" />
-            <span>Generate Reports</span>
+            <span>Reports</span>
           </button>
           <button 
             onClick={() => analytics && fetchAIInsights(analytics)}
             disabled={loadingAI}
-            className="flex items-center space-x-2 bg-white border border-gray-200 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-all disabled:opacity-50"
+            className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-white border border-slate-200 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50 active:scale-95"
           >
             <Sparkles className={`h-4 w-4 text-purple-600 ${loadingAI ? "animate-pulse" : ""}`} />
-            <span>{loadingAI ? t('admin.analyzing') : t('admin.refresh_ai')}</span>
+            <span>{loadingAI ? t('admin.analyzing') : 'AI Insights'}</span>
           </button>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-xl mb-8 w-fit">
+      <div className="flex items-center space-x-1 bg-slate-100 p-1.5 rounded-2xl mb-10 w-full md:w-fit">
         <button
           onClick={() => setActiveTab("analytics")}
-          className={`flex items-center space-x-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-            activeTab === "analytics" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          className={`flex-1 md:flex-none flex items-center justify-center space-x-2 px-8 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+            activeTab === "analytics" ? "bg-white text-blue-600 shadow-lg shadow-slate-200/50" : "text-slate-500 hover:text-slate-700"
           }`}
         >
           <PieChartIcon className="h-4 w-4" />
@@ -163,12 +181,12 @@ const AdminDashboard: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab("review")}
-          className={`flex items-center space-x-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-            activeTab === "review" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          className={`flex-1 md:flex-none flex items-center justify-center space-x-2 px-8 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+            activeTab === "review" ? "bg-white text-blue-600 shadow-lg shadow-slate-200/50" : "text-slate-500 hover:text-slate-700"
           }`}
         >
           <Clock className="h-4 w-4" />
-          <span>Review Center</span>
+          <span>Review</span>
         </button>
       </div>
 
@@ -185,6 +203,7 @@ const AdminDashboard: React.FC = () => {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           handleQuickAction={handleQuickAction}
+          handleUrgencyAction={handleUrgencyAction}
           onViewIssue={(id) => navigate(`/issues/${id}`)}
         />
       )}

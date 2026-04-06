@@ -1,5 +1,5 @@
 import React from "react";
-import { Clock, List } from "lucide-react";
+import { Clock, List, CheckCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -9,6 +9,9 @@ interface Issue {
   title: string;
   status: string;
   category: string;
+  severity: string;
+  urgency: string;
+  urgency_verified?: boolean;
   createdAt: string;
   votes: number;
 }
@@ -20,6 +23,7 @@ interface ReviewCenterSectionProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   handleQuickAction: (issueId: string, status: string) => Promise<void>;
+  handleUrgencyAction: (issueId: string, urgency: string, verified: boolean) => Promise<void>;
   onViewIssue: (issueId: string) => void;
 }
 
@@ -30,6 +34,7 @@ const ReviewCenterSection: React.FC<ReviewCenterSectionProps> = ({
   searchQuery,
   setSearchQuery,
   handleQuickAction,
+  handleUrgencyAction,
   onViewIssue
 }) => {
   const { t } = useTranslation();
@@ -103,6 +108,7 @@ const ReviewCenterSection: React.FC<ReviewCenterSectionProps> = ({
               <tr className="bg-gray-50 text-xs font-bold text-gray-400 uppercase tracking-widest">
                 <th className="px-8 py-4">{t('admin.table.title')}</th>
                 <th className="px-8 py-4">{t('admin.table.category')}</th>
+                <th className="px-8 py-4">Severity / Urgency</th>
                 <th className="px-8 py-4">Status</th>
                 <th className="px-8 py-4">{t('admin.table.votes')}</th>
                 <th className="px-8 py-4 text-right">{t('admin.table.action')}</th>
@@ -111,7 +117,7 @@ const ReviewCenterSection: React.FC<ReviewCenterSectionProps> = ({
             <tbody className="divide-y divide-gray-100">
               {filteredIssues.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-8 py-10 text-center text-gray-500">
+                  <td colSpan={6} className="px-8 py-10 text-center text-gray-500">
                     {recentIssues.length === 0 
                       ? (reviewStatus === "pending" ? t('admin.table.no_pending') : t('admin.table.no_in_progress'))
                       : "No issues match your search"}
@@ -128,6 +134,34 @@ const ReviewCenterSection: React.FC<ReviewCenterSectionProps> = ({
                       <span className="text-[10px] uppercase tracking-widest bg-gray-100 px-2 py-1 rounded font-bold text-gray-600">
                         {t(`issues.category.${issue.category}`, { defaultValue: issue.category })}
                       </span>
+                    </td>
+                    <td className="px-8 py-4">
+                      <div className="flex flex-col space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${
+                            issue.severity === 'high' ? 'bg-red-100 text-red-600' : 
+                            issue.severity === 'medium' ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600'
+                          }`}>
+                            {issue.severity}
+                          </span>
+                          <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded flex items-center ${
+                            issue.urgency === 'critical' ? 'bg-red-200 text-red-700' :
+                            issue.urgency === 'high' ? 'bg-red-100 text-red-600' : 
+                            issue.urgency === 'medium' ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600'
+                          }`}>
+                            {issue.urgency}
+                            {issue.urgency_verified && <CheckCircle className="h-2.5 w-2.5 ml-1" />}
+                          </span>
+                        </div>
+                        {!issue.urgency_verified && (
+                          <button
+                            onClick={() => handleUrgencyAction(issue._id, issue.urgency, true)}
+                            className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline text-left"
+                          >
+                            Verify Urgency
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-8 py-4">
                       <select
