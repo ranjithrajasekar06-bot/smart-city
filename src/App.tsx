@@ -20,6 +20,7 @@ import IssueDetails from "./pages/IssueDetails";
 import ReportIssue from "./pages/ReportIssue";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminReports from "./pages/AdminReports";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import Profile from "./pages/Profile";
 import Notifications from "./pages/Notifications";
 
@@ -51,6 +52,11 @@ export default function App() {
                 <Route element={<ProtectedRoute adminOnly />}>
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/admin/reports" element={<AdminReports />} />
+                </Route>
+
+                {/* Super Admin Routes */}
+                <Route element={<ProtectedRoute superAdminOnly />}>
+                  <Route path="/superadmin" element={<SuperAdminDashboard />} />
                 </Route>
               </Routes>
             </main>

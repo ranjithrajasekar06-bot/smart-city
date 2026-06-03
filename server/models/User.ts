@@ -1,5 +1,22 @@
 import mongoose from "mongoose";
 
+export interface IUser extends mongoose.Document {
+  name: string;
+  email: string;
+  password?: string;
+  role: "citizen" | "admin" | "super_admin";
+  department?: "Road Maintenance" | "Water Supply" | "Electricity" | "Waste Management" | "Emergency Services" | null;
+  isActive: boolean;
+  failedLoginAttempts: number;
+  lockUntil?: Date | null;
+  resetPasswordToken?: string | null;
+  resetPasswordExpires?: Date | null;
+  latitude?: number;
+  longitude?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -23,8 +40,33 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["citizen", "admin"],
+      enum: ["citizen", "admin", "super_admin"],
       default: "citizen",
+    },
+    department: {
+      type: String,
+      enum: ["Road Maintenance", "Water Supply", "Electricity", "Waste Management", "Emergency Services", null],
+      default: null,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+      default: null,
+    },
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
     },
     latitude: {
       type: Number,
@@ -38,4 +80,4 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model<IUser>("User", userSchema);

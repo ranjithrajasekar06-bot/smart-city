@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { MapPin, LogOut, User, PlusCircle, LayoutDashboard, List, Bell, WifiOff, Menu, X } from "lucide-react";
+import { MapPin, LogOut, User, PlusCircle, LayoutDashboard, List, Bell, WifiOff, Menu, X, Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "motion/react";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -86,6 +86,13 @@ const Navbar: React.FC = () => {
                   <Link to="/admin" className="text-slate-600 hover:text-blue-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-all hover:bg-blue-50">
                     <LayoutDashboard className="h-4 w-4 mr-2" />
                     {t('nav.admin')}
+                  </Link>
+                )}
+
+                {user.role === "super_admin" && (
+                  <Link to="/superadmin" className="text-slate-600 hover:text-blue-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-all hover:bg-blue-50">
+                    <Shield className="h-4 w-4 mr-2" />
+                    Super Admin
                   </Link>
                 )}
 
@@ -184,6 +191,19 @@ const Navbar: React.FC = () => {
                       <LayoutDashboard className="h-5 w-5 text-blue-600" />
                     </div>
                     <span>{t('nav.admin')}</span>
+                  </Link>
+                )}
+
+                {user.role === "super_admin" && (
+                  <Link
+                    to="/superadmin"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center space-x-4 p-5 rounded-3xl bg-slate-50 text-slate-700 font-black uppercase tracking-widest text-xs hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-95"
+                  >
+                    <div className="p-2 bg-white rounded-xl shadow-sm">
+                      <Shield className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <span>Super Admin</span>
                   </Link>
                 )}
 

@@ -5,7 +5,9 @@ interface User {
   _id: string;
   name: string;
   email: string;
-  role: "citizen" | "admin";
+  role: "citizen" | "admin" | "super_admin";
+  department?: string;
+  isActive?: boolean;
   token: string;
   createdAt?: string;
 }

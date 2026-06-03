@@ -17,10 +17,15 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       token = req.headers.authorization.split(" ")[1];
       console.log("Auth middleware: Token found, verifying...");
       const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "secret");
-      req.user = await User.findById(decoded.id).select("-password");
+      const userId = decoded.userId || decoded.id;
+      req.user = await User.findById(userId).select("-password");
       if (!req.user) {
         console.warn("Auth middleware: User not found for token");
         return res.status(401).json({ message: "Not authorized, user not found" });
+      }
+      if (req.user.isActive === false) {
+        console.warn(`Auth middleware: Deactivated user access blocked: ${req.user.email}`);
+        return res.status(403).json({ message: "Forbidden - Account has been deactivated" });
       }
       console.log("Auth middleware: User authorized:", req.user.name);
       return next();
@@ -37,9 +42,20 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
 };
 
 export const admin = (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (req.user && req.user.role === "admin") {
+  if (req.user && (req.user.role === "admin" || req.user.role === "super_admin")) {
     next();
   } else {
-    res.status(401).json({ message: "Not authorized as an admin" });
+    res.status(403).json({ message: "Forbidden - Not authorized as an admin" });
   }
+};
+
+export const authorize = (...roles: string[]) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (req.user && roles.includes(req.user.role)) {
+      next();
+    } else {
+      console.warn(`Auth middleware: Role authorization failed. Expected roles: ${roles.join(", ")}, got: ${req.user?.role}`);
+      res.status(403).json({ message: "Forbidden - Unauthorized route" });
+    }
+  };
 };

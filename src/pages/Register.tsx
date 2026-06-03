@@ -12,14 +12,13 @@ const Register: React.FC = () => {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "citizen" as "citizen" | "admin",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const { name, email, password, confirmPassword, role } = formData;
+  const { name, email, password, confirmPassword } = formData;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -37,7 +36,7 @@ const Register: React.FC = () => {
 
     const attemptRegister = async (retries = 10): Promise<void> => {
       try {
-        const { data } = await api.post("/auth/register", { name, email, password, role });
+        const { data } = await api.post("/auth/register", { name, email, password });
         login(data);
         navigate("/");
       } catch (err: any) {
@@ -120,22 +119,6 @@ const Register: React.FC = () => {
                   placeholder="you@example.com"
                 />
               </div>
-            </div>
-
-            <div>
-              <label htmlFor="role" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-                {t('auth.role')}
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={role}
-                onChange={handleChange}
-                className="appearance-none block w-full px-4 py-3 border border-slate-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium bg-white"
-              >
-                <option value="citizen">{t('auth.citizen')}</option>
-                <option value="admin">{t('auth.authority')}</option>
-              </select>
             </div>
 
             <div>

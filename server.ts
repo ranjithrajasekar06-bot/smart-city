@@ -8,6 +8,8 @@ import dotenv from "dotenv";
 import connectDB from "./server/config/db";
 import authRoutes from "./server/routes/authRoutes";
 import issueRoutes from "./server/routes/issueRoutes";
+import superAdminRoutes from "./server/routes/superAdminRoutes";
+import setupSuperAdmin from "./server/config/setupSuperAdmin";
 import mongoose from "mongoose";
 
 import { createServer } from "http";
@@ -26,9 +28,12 @@ async function startServer() {
   initSocket(httpServer);
 
   // Connect to database asynchronously
-  connectDB().then(dbConnected => {
+  connectDB().then(async (dbConnected) => {
     if (!dbConnected) {
       console.error("CRITICAL: Failed to connect to MongoDB. Database operations will fail.");
+    } else {
+      // Run Super Admin Setup once database is ready
+      await setupSuperAdmin();
     }
   });
 
@@ -66,6 +71,7 @@ async function startServer() {
   app.use("/api/auth", authRoutes);
   app.use("/api/issues", issueRoutes);
   app.use("/api/notifications", notificationRoutes);
+  app.use("/api/superadmin", superAdminRoutes);
 
   app.get("/api/health", (req, res) => {
     res.json({ 

@@ -61,18 +61,23 @@ api.interceptors.response.use(
       localStorage.removeItem("user");
     }
 
+    // Check if it's a real database connection error from our custom middleware rather than a gateway error
+    const isDatabaseError = error.response && error.response.status === 503 && 
+      (error.response.data?.status === "unavailable" || 
+       (error.response.data && typeof error.response.data === "object" && "message" in error.response.data && String((error.response.data as any).message).includes("Database")));
+
     // Detect AI Studio "Starting Server" page in error response (e.g., 502, 503)
     const isStartingHtml = 
       error.response && 
       typeof error.response.data === "string" && 
       error.response.data.includes("Please wait while your application starts...");
     
-    const isGatewayError = error.response && (error.response.status === 502 || error.response.status === 503);
+    const isGatewayError = error.response && (error.response.status === 502 || error.response.status === 503) && !isDatabaseError;
     
     // Also treat network errors (no response) as potential startup state
     const isNetworkError = !error.response;
 
-    if (config && (isStartingHtml || isGatewayError || isNetworkError || error.isStarting)) {
+    if (config && !isDatabaseError && (isStartingHtml || isGatewayError || isNetworkError || error.isStarting)) {
       // Initialize retry count if it doesn't exist
       config.__retryCount = config.__retryCount || 0;
 

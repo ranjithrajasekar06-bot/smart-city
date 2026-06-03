@@ -4,6 +4,7 @@ import Vote from "../models/Vote";
 import User from "../models/User";
 import Notification from "../models/Notification";
 import { getIO } from "../socket";
+import { logAudit } from "../utils/auditLogger";
 
 // Helper to calculate distance in km
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -212,6 +213,16 @@ export const updateIssueStatus = async (req: Request, res: Response) => {
     issue.status = status;
     await issue.save();
 
+    const reqUser = (req as any).user;
+    if (reqUser) {
+      await logAudit(
+        reqUser._id.toString(),
+        reqUser.name,
+        reqUser.role,
+        `Status of issue "${issue.title}" updated from "${oldStatus}" to "${status}"`
+      );
+    }
+
     const io = getIO();
     // Emit general event for real-time updates
     io.emit("issue:updated", issue);
@@ -265,7 +276,18 @@ export const deleteIssue = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Issue not found" });
     }
 
+    const title = issue.title;
     await issue.deleteOne();
+
+    const reqUser = (req as any).user;
+    if (reqUser) {
+      await logAudit(
+        reqUser._id.toString(),
+        reqUser.name,
+        reqUser.role,
+        `Deleted issue "${title}"`
+      );
+    }
 
     // Emit general event for real-time updates
     const io = getIO();
