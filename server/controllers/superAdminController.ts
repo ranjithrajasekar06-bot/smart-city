@@ -10,7 +10,7 @@ import { logAudit } from "../utils/auditLogger";
 // @access  Private (Super Admin)
 export const getAdmins = async (req: any, res: Response) => {
   try {
-    const admins = await User.find({ role: "admin" }).select("-password");
+    const admins = await User.find({ role: { $in: ["admin", "super_admin"] } }).select("-password");
     res.json(admins);
   } catch (error: any) {
     console.error("Get Admins Error:", error);
@@ -23,9 +23,9 @@ export const getAdmins = async (req: any, res: Response) => {
 // @access  Private (Super Admin)
 export const createAdmin = async (req: any, res: Response) => {
   try {
-    const { name, email, department, password } = req.body;
+    const { name, email, department, password, role = "admin" } = req.body;
 
-    if (!name || !email || !department || !password) {
+    if (!name || !email || !password || (role === "admin" && !department)) {
       return res.status(400).json({ message: "Please enter all fields" });
     }
 
@@ -42,8 +42,8 @@ export const createAdmin = async (req: any, res: Response) => {
       name,
       email,
       password: hashedPassword,
-      role: "admin",
-      department,
+      role,
+      department: role === "super_admin" ? null : department,
       isActive: true,
     });
 
@@ -52,7 +52,7 @@ export const createAdmin = async (req: any, res: Response) => {
         req.user._id.toString(),
         req.user.name,
         req.user.role,
-        `Admin account created: ${admin.name} (${admin.email}) for department ${department}`
+        `Admin account created: ${admin.name} (${admin.email}) with role ${role} for department ${department || "N/A"}`
       );
 
       res.status(201).json({
@@ -78,16 +78,17 @@ export const createAdmin = async (req: any, res: Response) => {
 // @access  Private (Super Admin)
 export const updateAdmin = async (req: any, res: Response) => {
   try {
-    const { name, email, department, isActive, password } = req.body;
+    const { name, email, department, role, isActive, password } = req.body;
     const admin = await User.findById(req.params.id);
 
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "super_admin")) {
       return res.status(404).json({ message: "Admin not found" });
     }
 
     admin.name = name || admin.name;
     admin.email = email || admin.email;
-    admin.department = department !== undefined ? department : admin.department;
+    admin.role = role || admin.role;
+    admin.department = admin.role === "super_admin" ? null : (department !== undefined ? department : admin.department);
     admin.isActive = isActive !== undefined ? isActive : admin.isActive;
 
     if (password && password.trim() !== "") {
@@ -101,7 +102,7 @@ export const updateAdmin = async (req: any, res: Response) => {
       req.user._id.toString(),
       req.user.name,
       req.user.role,
-      `Admin account updated: ${admin.name} (${admin.email}). Active: ${admin.isActive}`
+      `Admin account updated: ${admin.name} (${admin.email}). Role: ${admin.role}. Active: ${admin.isActive}`
     );
 
     res.json({
@@ -126,7 +127,7 @@ export const deleteAdmin = async (req: any, res: Response) => {
   try {
     const admin = await User.findById(req.params.id);
 
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "super_admin")) {
       return res.status(404).json({ message: "Admin not found" });
     }
 

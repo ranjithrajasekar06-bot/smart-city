@@ -166,10 +166,20 @@ function makeDocument(obj: any, collectionName: string) {
   return doc;
 }
 
-// Mock query matching including standard selectors ($ne, $gte, $lte, $in)
+// Mock query matching including standard selectors ($ne, $gte, $lte, $in, $or)
 function matchesQuery(item: any, query: any): boolean {
   if (!query || Object.keys(query).length === 0) return true;
   
+  if (query.$or && Array.isArray(query.$or)) {
+    const anyMatches = query.$or.some((subQuery: any) => matchesQuery(item, subQuery));
+    if (!anyMatches) return false;
+    
+    // Check remaining keys of query if any
+    const restQuery = { ...query };
+    delete restQuery.$or;
+    return matchesQuery(item, restQuery);
+  }
+
   for (const key of Object.keys(query)) {
     const val = query[key];
     
@@ -283,6 +293,10 @@ class MockQuery {
   }
 
   select(fields: string) {
+    return this;
+  }
+
+  lean() {
     return this;
   }
 }
@@ -449,13 +463,20 @@ export function enableMongooseMock() {
                 const d = new Date(dateVal);
                 keyVal = d.toISOString().split('T')[0];
               }
+            } else if (groupKey.$month) {
+              const dateField = groupKey.$month.startsWith('$') ? groupKey.$month.slice(1) : groupKey.$month;
+              const dateVal = item[dateField];
+              if (dateVal) {
+                const d = new Date(dateVal);
+                keyVal = String(d.getMonth() + 1);
+              }
             }
           }
           groups[keyVal] = (groups[keyVal] || 0) + 1;
         }
 
         const results = Object.entries(groups).map(([id, count]) => ({
-          _id: id,
+          _id: isNaN(Number(id)) || id === "" ? id : Number(id),
           count: count
         }));
         return Promise.resolve(results) as any;

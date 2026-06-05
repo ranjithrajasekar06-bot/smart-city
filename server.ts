@@ -9,6 +9,7 @@ import connectDB from "./server/config/db";
 import authRoutes from "./server/routes/authRoutes";
 import issueRoutes from "./server/routes/issueRoutes";
 import superAdminRoutes from "./server/routes/superAdminRoutes";
+import userRoutes from "./server/routes/userRoutes";
 import setupSuperAdmin from "./server/config/setupSuperAdmin";
 import mongoose from "mongoose";
 
@@ -72,6 +73,8 @@ async function startServer() {
   app.use("/api/issues", issueRoutes);
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/superadmin", superAdminRoutes);
+  app.use("/api/users", userRoutes);
+  app.use("/api/analytics", userRoutes);
 
   app.get("/api/health", (req, res) => {
     res.json({ 

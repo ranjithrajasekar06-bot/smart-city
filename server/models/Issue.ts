@@ -60,6 +60,10 @@ const issueSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    internal_notes: {
+      type: [String],
+      default: [],
+    },
     votes: {
       type: Number,
       default: 0,

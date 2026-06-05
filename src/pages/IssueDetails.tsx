@@ -254,7 +254,7 @@ const IssueDetails: React.FC = () => {
                     <span className="hidden sm:inline">{t('details.share_button')}</span>
                   </button>
 
-                  {user?.role === "admin" && (
+                  {(user?.role === "admin" || user?.role === "super_admin") && (
                     <button
                       onClick={() => setIsDeleteModalOpen(true)}
                       className="p-3 md:p-4 text-red-600 bg-red-50 rounded-xl md:rounded-2xl hover:bg-red-100 transition-all active:scale-95"
@@ -366,17 +366,22 @@ const IssueDetails: React.FC = () => {
           </div>
 
           {/* Admin Controls */}
-          {user?.role === "admin" && (
+          {(user?.role === "admin" || user?.role === "super_admin") && (
             <div className="bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden relative">
               <div className="absolute top-0 right-0 p-4 md:p-6">
                 <div className="bg-blue-600 text-white text-[8px] md:text-[10px] font-black uppercase tracking-widest px-2.5 md:px-3 py-1 md:py-1.5 rounded-lg md:rounded-xl shadow-lg shadow-blue-200">
-                  {t('details.admin_only')}
+                  {user?.role === "super_admin" ? "Super Admin" : t('details.admin_only')}
                 </div>
               </div>
-              <h3 className="text-xl md:text-2xl font-black text-slate-900 mb-6 md:mb-8 flex items-center">
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 mb-1 flex items-center">
                 <CheckCircle2 className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3 text-blue-600" />
                 {t('details.admin_controls')}
               </h3>
+              <p className="text-xs text-slate-400 font-bold mb-6 md:mb-8 uppercase tracking-wider">
+                {user?.role === "super_admin" 
+                  ? "Global Moderator Overrides • Super Administrator Privileges" 
+                  : `Departmental Scope • ${user?.department || "General"} Operations`}
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                 {[
                   { status: "pending", icon: Clock, color: "yellow", label: t('details.set_pending') },

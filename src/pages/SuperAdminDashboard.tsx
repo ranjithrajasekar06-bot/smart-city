@@ -41,8 +41,8 @@ interface AdminUser {
   _id: string;
   name: string;
   email: string;
-  role: "admin";
-  department: string;
+  role: "admin" | "super_admin";
+  department: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -91,8 +91,14 @@ const SuperAdminDashboard: React.FC = () => {
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminDepartment, setAdminDepartment] = useState(DEPARTMENTS[0]);
+  const [adminRole, setAdminRole] = useState<"admin" | "super_admin">("admin");
   const [adminPassword, setAdminPassword] = useState("");
   const [adminIsActive, setAdminIsActive] = useState(true);
+  
+  // Search & Filter UI state
+  const [adminSearch, setAdminSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "super_admin">("all");
+  const [deptFilter, setDeptFilter] = useState<"all" | string>("all");
   
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -123,6 +129,7 @@ const SuperAdminDashboard: React.FC = () => {
     setAdminName("");
     setAdminEmail("");
     setAdminDepartment(DEPARTMENTS[0]);
+    setAdminRole("admin");
     setAdminPassword("");
     setAdminIsActive(true);
     setIsEditMode(false);
@@ -139,7 +146,8 @@ const SuperAdminDashboard: React.FC = () => {
     setEditingAdminId(admin._id);
     setAdminName(admin.name);
     setAdminEmail(admin.email);
-    setAdminDepartment(admin.department);
+    setAdminDepartment(admin.department || DEPARTMENTS[0]);
+    setAdminRole(admin.role || "admin");
     setAdminPassword(""); // leave password blank by default during edit
     setAdminIsActive(admin.isActive);
     setIsEditMode(true);
@@ -162,7 +170,8 @@ const SuperAdminDashboard: React.FC = () => {
         const payload: any = {
           name: adminName,
           email: adminEmail,
-          department: adminDepartment,
+          role: adminRole,
+          department: adminRole === "super_admin" ? null : adminDepartment,
           isActive: adminIsActive,
         };
         if (adminPassword.trim() !== "") {
@@ -176,7 +185,8 @@ const SuperAdminDashboard: React.FC = () => {
         const payload = {
           name: adminName,
           email: adminEmail,
-          department: adminDepartment,
+          role: adminRole,
+          department: adminRole === "super_admin" ? null : adminDepartment,
           password: adminPassword,
         };
 
@@ -223,6 +233,20 @@ const SuperAdminDashboard: React.FC = () => {
       toast.error(error.response?.data?.message || "Delete failed");
     }
   };
+
+  const filteredAdmins = adminsList.filter((admin) => {
+    const matchesSearch = 
+      admin.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
+      admin.email.toLowerCase().includes(adminSearch.toLowerCase());
+    
+    const matchesRole = roleFilter === "all" || admin.role === roleFilter;
+    
+    const matchesDept = 
+      deptFilter === "all" || 
+      (admin.role === "admin" && admin.department === deptFilter);
+      
+    return matchesSearch && matchesRole && matchesDept;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-16">
@@ -512,7 +536,7 @@ const SuperAdminDashboard: React.FC = () => {
                 <div className="bg-white rounded-[2rem] shadow-md border border-slate-100 overflow-hidden">
                   
                   {/* Top bar inside the Admin management module */}
-                  <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="p-6 md:p-8 border-b border-slate-55 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                       <h2 className="text-xl font-black text-slate-900 tracking-tight">Admin Accounts</h2>
                       <p className="text-xs text-slate-400 font-medium mt-0.5">Departments authority management logs.</p>
@@ -526,11 +550,55 @@ const SuperAdminDashboard: React.FC = () => {
                     </button>
                   </div>
 
+                  {/* Search and Filters row */}
+                  <div className="bg-slate-50/50 p-6 border-b border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Search Input */}
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                        <Users className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={adminSearch}
+                        onChange={(e) => setAdminSearch(e.target.value)}
+                        placeholder="Search by name or email..."
+                        className="block w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-xs transition-all"
+                      />
+                    </div>
+                    
+                    {/* Role Filter */}
+                    <div className="relative">
+                      <select
+                        value={roleFilter}
+                        onChange={(e) => setRoleFilter(e.target.value as any)}
+                        className="appearance-none block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-xs"
+                      >
+                        <option value="all">All Roles</option>
+                        <option value="admin">Regular Admin (Department Scope)</option>
+                        <option value="super_admin">Super Admin (Global System Override)</option>
+                      </select>
+                    </div>
+
+                    {/* Department Scope Filter */}
+                    <div className="relative">
+                      <select
+                        value={deptFilter}
+                        onChange={(e) => setDeptFilter(e.target.value)}
+                        className="appearance-none block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-xs"
+                      >
+                        <option value="all">All Department Scopes</option>
+                        {DEPARTMENTS.map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="overflow-x-auto">
-                    {adminsList.length === 0 ? (
+                    {filteredAdmins.length === 0 ? (
                       <div className="p-16 text-center text-slate-400 space-y-3">
                         <Users className="h-12 w-12 mx-auto text-slate-200" />
-                        <p className="text-sm font-bold">No Admin accounts have been registered yet.</p>
+                        <p className="text-sm font-bold">No Admin accounts found matching filters.</p>
                       </div>
                     ) : (
                       <table className="w-full text-left border-collapse">
@@ -538,20 +606,34 @@ const SuperAdminDashboard: React.FC = () => {
                           <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
                             <th className="py-4 px-6">Name</th>
                             <th className="py-4 px-6">Email</th>
-                            <th className="py-4 px-6">Department Auth</th>
+                            <th className="py-4 px-6">Authority Role</th>
+                            <th className="py-4 px-6">Department Scope</th>
                             <th className="py-4 px-6 text-center">Status</th>
                             <th className="py-4 px-6 text-right">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {adminsList.map((admin) => (
+                          {filteredAdmins.map((admin) => (
                             <tr key={admin._id} className="hover:bg-slate-50/50 transition-colors">
                               <td className="py-4 px-6 font-bold text-slate-800">{admin.name}</td>
                               <td className="py-4 px-6 text-xs text-slate-600 font-mono">{admin.email}</td>
                               <td className="py-4 px-6">
-                                <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-800 rounded-full text-xs font-bold font-sans">
-                                  {admin.department}
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
+                                  admin.role === "super_admin" 
+                                    ? "bg-indigo-50 text-indigo-700 border border-indigo-100" 
+                                    : "bg-blue-50 text-blue-700 border border-blue-100"
+                                }`}>
+                                  {admin.role === "super_admin" ? "Super Admin" : "Regular Admin"}
                                 </span>
+                              </td>
+                              <td className="py-4 px-6">
+                                {admin.role === "super_admin" ? (
+                                  <span className="text-xs text-slate-400 italic font-semibold">Global System Override</span>
+                                ) : (
+                                  <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-800 rounded-full text-xs font-bold font-sans">
+                                    {admin.department}
+                                  </span>
+                                )}
                               </td>
                               <td className="py-4 px-6 text-center">
                                 <button
@@ -711,21 +793,38 @@ const SuperAdminDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Department Authority dropdown */}
+                {/* Authority Role selection */}
                 <div>
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-                    Assigned Department Authority
+                    Authority Role
                   </label>
                   <select
-                    value={adminDepartment}
-                    onChange={(e) => setAdminDepartment(e.target.value)}
+                    value={adminRole}
+                    onChange={(e) => setAdminRole(e.target.value as "admin" | "super_admin")}
                     className="appearance-none block w-full px-4 py-3 border border-slate-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm bg-white"
                   >
-                    {DEPARTMENTS.map((dept) => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
+                    <option value="admin">Regular Admin</option>
+                    <option value="super_admin">Super Admin</option>
                   </select>
                 </div>
+
+                {/* Department Authority dropdown */}
+                {adminRole === "admin" && (
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                      Assigned Department Authority
+                    </label>
+                    <select
+                      value={adminDepartment}
+                      onChange={(e) => setAdminDepartment(e.target.value)}
+                      className="appearance-none block w-full px-4 py-3 border border-slate-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm bg-white"
+                    >
+                      {DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {/* Password input with visual hide/show */}
                 <div>

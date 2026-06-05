@@ -202,7 +202,7 @@ export const getIssueById = async (req: Request, res: Response) => {
 // @access  Private/Admin
 export const updateIssueStatus = async (req: Request, res: Response) => {
   try {
-    const { status } = req.body;
+    const { status, urgency, severity, internal_notes } = req.body;
     const issue = await Issue.findById(req.params.id);
 
     if (!issue) {
@@ -210,7 +210,20 @@ export const updateIssueStatus = async (req: Request, res: Response) => {
     }
 
     const oldStatus = issue.status;
-    issue.status = status;
+    
+    if (status !== undefined) {
+      issue.status = status;
+    }
+    if (urgency !== undefined) {
+      (issue as any).urgency = urgency;
+    }
+    if (severity !== undefined) {
+      (issue as any).severity = severity;
+    }
+    if (internal_notes !== undefined) {
+      (issue as any).internal_notes = internal_notes;
+    }
+
     await issue.save();
 
     const reqUser = (req as any).user;
@@ -219,7 +232,7 @@ export const updateIssueStatus = async (req: Request, res: Response) => {
         reqUser._id.toString(),
         reqUser.name,
         reqUser.role,
-        `Status of issue "${issue.title}" updated from "${oldStatus}" to "${status}"`
+        `Issue "${issue.title}" properties updated. Status: ${oldStatus} -> ${issue.status}. Urgency: ${issue.urgency}.`
       );
     }
 
