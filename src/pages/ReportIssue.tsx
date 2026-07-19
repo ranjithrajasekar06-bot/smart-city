@@ -8,8 +8,9 @@ import { Camera, MapPin, AlertCircle, CheckCircle, Loader2, Sparkles, Navigation
 import { analyzeIssueImage, analyzeIssueDescription } from "../services/gemini";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "motion/react";
-import { ShieldAlert, Zap, Tag, WifiOff, CloudOff } from "lucide-react";
+import { ShieldAlert, Zap, Tag, WifiOff, CloudOff, ZoomIn, Trash2, Eye } from "lucide-react";
 import { saveOfflineReport } from "../services/offlineStorage";
+import { TN_DISTRICTS } from "../data/tnDistricts";
 
 // Fix for default marker icons in Leaflet with React
 const markerIcon = "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png";
@@ -38,7 +39,7 @@ const pulsingIcon = L.divIcon({
 });
 
 const ReportIssue: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -52,7 +53,11 @@ const ReportIssue: React.FC = () => {
     severity: "medium",
     urgency: "medium",
     keywords: [] as string[],
+    district: "",
+    taluk: "",
   });
+
+  const [availableTaluks, setAvailableTaluks] = useState<any[]>([]);
 
   const categories = [
     "pothole",
@@ -68,6 +73,9 @@ const ReportIssue: React.FC = () => {
   ];
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [captureMethod, setCaptureMethod] = useState<"upload" | "camera" | null>(null);
+  const [aiAnalyzed, setAiAnalyzed] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
@@ -83,6 +91,7 @@ const ReportIssue: React.FC = () => {
   const navigate = useNavigate();
 
   const [position, setPosition] = useState<[number, number] | null>(null);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -98,6 +107,48 @@ const ReportIssue: React.FC = () => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsLightboxOpen(false);
+      }
+    };
+    if (isLightboxOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isLightboxOpen]);
+
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        district: prev.district || user.district || "",
+        taluk: prev.taluk || user.taluk || "",
+      }));
+    }
+  }, [user]);
+
+  // Sync available taluks when district changes
+  useEffect(() => {
+    const selected = TN_DISTRICTS.find(d => d.districtName.en === formData.district);
+    if (selected) {
+      setAvailableTaluks(selected.taluks);
+      setFormData(prev => {
+        const talukExists = selected.taluks.some(t => t.en === prev.taluk);
+        if (talukExists) {
+          return prev;
+        }
+        return { ...prev, taluk: selected.taluks[0]?.en || "" };
+      });
+    } else {
+      setAvailableTaluks([]);
+      setFormData(prev => ({ ...prev, taluk: "" }));
+    }
+  }, [formData.district]);
 
   const startCamera = async () => {
     try {
@@ -141,6 +192,8 @@ const ReportIssue: React.FC = () => {
             const file = new File([blob], `captured-issue-${Date.now()}.jpg`, { type: "image/jpeg" });
             setImage(file);
             setPreview(URL.createObjectURL(file));
+            setCaptureMethod("camera");
+            setAiAnalyzed(false);
             stopCamera();
             playFeedback();
           }
@@ -187,6 +240,8 @@ const ReportIssue: React.FC = () => {
       const file = e.target.files[0];
       setImage(file);
       setPreview(URL.createObjectURL(file));
+      setCaptureMethod("upload");
+      setAiAnalyzed(false);
     }
   };
 
@@ -237,6 +292,7 @@ const ReportIssue: React.FC = () => {
       }
 
       setAnalyzing(false);
+      setAiAnalyzed(true);
     } catch (err: any) {
       console.error("AI Analysis Error:", err);
       setError("AI analysis failed. Please fill in the details manually.");
@@ -272,6 +328,7 @@ const ReportIssue: React.FC = () => {
         setPosition([e.latlng.lat, e.latlng.lng]);
         setFormData((prev) => ({ ...prev, latitude: e.latlng.lat, longitude: e.latlng.lng }));
         reverseGeocode(e.latlng.lat, e.latlng.lng);
+        setLocationAccuracy(null);
         playFeedback();
       },
     });
@@ -294,11 +351,12 @@ const ReportIssue: React.FC = () => {
       setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const { latitude, longitude } = pos.coords;
+          const { latitude, longitude, accuracy } = pos.coords;
           const newPos: [number, number] = [latitude, longitude];
           setPosition(newPos);
           setFormData((prev) => ({ ...prev, latitude, longitude }));
           reverseGeocode(latitude, longitude);
+          setLocationAccuracy(accuracy);
           setIsLocating(false);
         },
         (err) => {
@@ -309,6 +367,7 @@ const ReportIssue: React.FC = () => {
             setPosition([51.505, -0.09]);
             setFormData((prev) => ({ ...prev, latitude: 51.505, longitude: -0.09 }));
           }
+          setLocationAccuracy(null);
           setIsLocating(false);
         },
         { enableHighAccuracy: true }
@@ -329,6 +388,9 @@ const ReportIssue: React.FC = () => {
     setLoading(true);
     setError("");
 
+    if (!formData.district) return setError("Please select a District");
+    if (!formData.taluk) return setError("Please select a Taluk");
+
     if (!isOnline) {
       try {
         await saveOfflineReport({
@@ -343,6 +405,8 @@ const ReportIssue: React.FC = () => {
           severity: formData.severity,
           urgency: formData.urgency,
           keywords: formData.keywords,
+          district: formData.district,
+          taluk: formData.taluk,
           imageBlob: image,
           imageName: image.name,
           timestamp: Date.now()
@@ -372,6 +436,8 @@ const ReportIssue: React.FC = () => {
     data.append("severity", formData.severity);
     data.append("urgency", formData.urgency);
     data.append("keywords", JSON.stringify(formData.keywords));
+    data.append("district", formData.district);
+    data.append("taluk", formData.taluk);
 
     try {
       console.log("Submitting issue with user:", user?.name);
@@ -505,6 +571,42 @@ const ReportIssue: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{t('fields.district')}</label>
+                  <select
+                    required
+                    value={formData.district}
+                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white transition-all font-medium appearance-none"
+                  >
+                    <option value="">{t('fields.district')}</option>
+                    {TN_DISTRICTS.map((d: any) => (
+                      <option key={d.districtName.en} value={d.districtName.en}>
+                        {i18n.language === 'ta' ? d.districtName.ta : d.districtName.en}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{t('fields.taluk')}</label>
+                  <select
+                    required
+                    value={formData.taluk}
+                    onChange={(e) => setFormData({ ...formData, taluk: e.target.value })}
+                    disabled={!formData.district}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white transition-all font-medium appearance-none disabled:bg-slate-50 disabled:text-slate-400"
+                  >
+                    <option value="">{t('fields.taluk')}</option>
+                    {availableTaluks.map((t: any) => (
+                      <option key={t.en} value={t.en}>
+                        {i18n.language === 'ta' ? t.ta : t.en}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Pin Code</label>
                   <input
                     type="text"
@@ -566,27 +668,146 @@ const ReportIssue: React.FC = () => {
                 <div className="relative group">
                   <AnimatePresence mode="wait">
                     {!isCameraActive ? (
-                      <motion.div
-                        key="upload-ui"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="space-y-4"
-                      >
-                        <div className="relative h-48 md:h-64 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-blue-400">
-                          {preview ? (
-                            <>
-                              <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                      preview ? (
+                        <motion.div
+                          key="preview-card"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="bg-white border text-left border-slate-200/90 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-center gap-4 md:gap-5 shadow-lg shadow-slate-100/40 relative group overflow-hidden w-full"
+                        >
+                          {/* Inner soft background gradient/glow */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-blue-50/20 via-transparent to-purple-50/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                          {/* Thumbnail Frame */}
+                          <div className="relative w-28 h-28 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-xl overflow-hidden shadow-md border border-slate-200 flex-shrink-0 group/img bg-slate-150">
+                            <img 
+                              src={preview} 
+                              alt="Selected report issue" 
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" 
+                            />
+                            {/* Hover Overlay Zoom */}
+                            <button
+                              type="button"
+                              onClick={() => setIsLightboxOpen(true)}
+                              className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover/img:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-1.5 text-white border-0 cursor-pointer w-full h-full"
+                              title="Zoom In"
+                            >
+                              <Eye className="h-5 w-5 animate-pulse text-white" />
+                              <span className="text-[9px] font-black tracking-widest text-slate-100 uppercase">
+                                {i18n.language === "ta" ? "பெரிதாக்கு" : "Zoom In"}
+                              </span>
+                            </button>
+                          </div>
+
+                          {/* Detail / Action Column */}
+                          <div className="flex-1 min-w-0 w-full relative z-10">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              {/* Source Device / Image Type Badge */}
+                              {captureMethod === "camera" ? (
+                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-150 animate-pulse">
+                                  <Camera className="h-3 w-3 text-emerald-600 mr-0.5" />
+                                  <span>{i18n.language === "ta" ? "நேரடி கேமரா" : "Live Camera"}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-150">
+                                  <Upload className="h-3 w-3 text-blue-600 mr-0.5" />
+                                  <span>{i18n.language === "ta" ? "கணினி கோப்பு" : "Local File"}</span>
+                                </span>
+                              )}
+
+                              {/* AI State badge */}
+                              {aiAnalyzed && (
+                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200">
+                                  <Sparkles className="h-2.5 w-2.5 text-purple-500 mr-0.5" />
+                                  <span>{i18n.language === "ta" ? "AI பகுப்பாய்வு" : "AI Analyzed"}</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Filename and Meta Details */}
+                            <h4 className="text-sm font-bold text-slate-800 truncate mb-1 pr-6" title={image?.name || "captured-report.jpg"}>
+                              {image?.name || "captured-report.jpg"}
+                            </h4>
+
+                            <div className="text-[10px] font-bold font-mono text-slate-400 uppercase tracking-wider flex items-center space-x-2">
+                              <span>{(image?.size ? (image.size / 1024).toFixed(1) + " KB" : "Live image")}</span>
+                              <span className="text-slate-200">•</span>
+                              <span>{image?.type?.split('/')[1] || "jpeg"}</span>
+                            </div>
+
+                            {/* Divider line */}
+                            <div className="h-px bg-slate-100 my-2.5" />
+
+                            {/* Actions bar */}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {/* Option to Trigger AI Analysis right here */}
+                              {!aiAnalyzed && !analyzing ? (
+                                <button
+                                  type="button"
+                                  onClick={handleAIAnalysis}
+                                  className="inline-flex items-center space-x-1 text-[10px] font-black uppercase tracking-wider text-purple-600 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2.5 py-1.5 rounded-lg transition-all duration-200 hover:-translate-y-0.5 shadow-sm active:translate-y-0 cursor-pointer"
+                                >
+                                  <Sparkles className="h-3 w-3 animate-pulse text-purple-500 mr-0.5" />
+                                  <span>{i18n.language === "ta" ? "AI பகுப்பாய்வு" : "Optimize with AI"}</span>
+                                </button>
+                              ) : analyzing ? (
+                                <span className="inline-flex items-center space-x-1 text-[10px] font-black uppercase tracking-wider text-purple-700 bg-purple-100/50 border border-purple-200 px-2.5 py-1.5 rounded-lg">
+                                  <Loader2 className="h-3 w-3 animate-spin text-purple-600 mr-0.5" />
+                                  <span>{i18n.language === "ta" ? "AI பகுப்பாய்வு செய்கிறது..." : "Analyzing..."}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center space-x-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1.5 rounded-lg">
+                                  <CheckCircle className="h-3 w-3 text-emerald-600 mr-0.5" />
+                                  <span>{i18n.language === "ta" ? "படிவம் நிரப்பப்பட்டது" : "AI Autofilled"}</span>
+                                </span>
+                              )}
+
+                              {/* Upload Different Option */}
+                              <label className="inline-flex items-center space-x-1 text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2.5 py-1.5 rounded-lg transition-colors active:scale-95 duration-150 cursor-pointer">
+                                <Upload className="h-3 w-3 mr-0.5" />
+                                <span>{i18n.language === "ta" ? "மாற்று கோப்பு" : "Choose Other"}</span>
+                                <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                              </label>
+
+                              {/* Recapture if camera is preferred */}
                               <button
                                 type="button"
-                                onClick={() => { setImage(null); setPreview(null); }}
-                                className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all"
+                                onClick={startCamera}
+                                className="inline-flex items-center space-x-1 text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2.5 py-1.5 rounded-lg transition-colors active:scale-95 duration-150 cursor-pointer"
                               >
-                                <X className="h-4 w-4" />
+                                <Camera className="h-3 w-3 mr-0.5" />
+                                <span>{i18n.language === "ta" ? "மீண்டும் எடுக்குக" : "Recapture"}</span>
                               </button>
-                            </>
-                          ) : (
-                            <label className="cursor-pointer flex flex-col items-center p-6 text-center w-full h-full">
+
+                              {/* Remove completely */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setImage(null);
+                                  setPreview(null);
+                                  setCaptureMethod(null);
+                                  setAiAnalyzed(false);
+                                }}
+                                className="inline-flex items-center space-x-1 text-[10px] font-black uppercase tracking-wider text-red-650 hover:bg-red-50 hover:text-red-750 border border-transparent hover:border-red-100 px-2.5 py-1.5 rounded-lg transition-all ml-auto cursor-pointer"
+                                title="Remove Image"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-0.5" />
+                                <span className="hidden xs:inline">{i18n.language === "ta" ? "நீக்குக" : "Remove"}</span>
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="upload-ui"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="space-y-4 w-full"
+                        >
+                          <div className="relative h-48 md:h-64 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-blue-400 w-full">
+                            <label className="cursor-pointer flex flex-col items-center p-6 text-center w-full h-full justify-center">
                               <div className="p-4 bg-white rounded-2xl shadow-sm mb-4 group-hover:scale-110 transition-transform">
                                 <Upload className="h-8 w-8 text-blue-600" />
                               </div>
@@ -594,20 +815,20 @@ const ReportIssue: React.FC = () => {
                               <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">JPG, PNG up to 5MB</span>
                               <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                             </label>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={startCamera}
-                            className="flex items-center space-x-2 text-blue-600 font-black text-xs uppercase tracking-widest hover:underline"
-                          >
-                            <Camera className="h-4 w-4" />
-                            <span>Or capture real-time photo</span>
-                          </button>
-                        </div>
-                      </motion.div>
+                          </div>
+                          
+                          <div className="flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={startCamera}
+                              className="flex items-center space-x-2 text-blue-600 font-black text-xs uppercase tracking-widest hover:underline whitespace-nowrap"
+                            >
+                              <Camera className="h-4 w-4" />
+                              <span>{i18n.language === "ta" ? "நேரடி புகைப்படம் எடுக்கவும்" : "Or capture real-time photo"}</span>
+                            </button>
+                          </div>
+                        </motion.div>
+                      )
                     ) : (
                       <motion.div
                         key="camera-ui"
@@ -680,6 +901,67 @@ const ReportIssue: React.FC = () => {
                     <span className="text-[10px] font-black uppercase tracking-widest">{t('report.locate_me')}</span>
                   </button>
                 </div>
+
+                {/* Geolocation Accuracy Visual Indicator */}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-sm">
+                  <div className="flex items-center space-x-3">
+                    <div className="relative flex h-2.5 w-2.5">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                        isLocating ? 'bg-blue-400' :
+                        locationAccuracy === null ? 'bg-amber-400' :
+                        locationAccuracy <= 15 ? 'bg-emerald-400' :
+                        locationAccuracy <= 50 ? 'bg-yellow-400' : 'bg-rose-400'
+                      }`}></span>
+                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                        isLocating ? 'bg-blue-500' :
+                        locationAccuracy === null ? 'bg-amber-500' :
+                        locationAccuracy <= 15 ? 'bg-emerald-500' :
+                        locationAccuracy <= 50 ? 'bg-yellow-500' : 'bg-rose-500'
+                      }`}></span>
+                    </div>
+                    
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        {i18n.language === "ta" ? "ஜிபிஎஸ் துல்லியம்" : "GPS Accuracy"}
+                      </span>
+                      <span className="text-xs font-bold text-slate-700 flex flex-wrap items-center gap-2">
+                        {isLocating ? (
+                          <span className="text-slate-400 animate-pulse">
+                            {i18n.language === "ta" ? "கணக்கிடப்படுகிறது..." : "Calculating..."}
+                          </span>
+                        ) : locationAccuracy === null ? (
+                          <span className="text-slate-500">
+                            {i18n.language === "ta" ? "கைமுறை வரைபடம் (தனிப்பயன் இடம்)" : "Manual Pin (Custom Location)"}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="font-mono text-slate-800">{locationAccuracy.toFixed(1)}m</span>
+                            <span className={`inline-flex items-center text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest ${
+                              locationAccuracy <= 15 ? 'bg-emerald-50 text-emerald-700 border border-emerald-150' :
+                              locationAccuracy <= 50 ? 'bg-yellow-50 text-yellow-700 border border-yellow-150' :
+                              'bg-rose-50 text-rose-700 border border-rose-150'
+                            }`}>
+                              {locationAccuracy <= 15 ? (i18n.language === "ta" ? "மிக நன்று" : "Excellent") :
+                               locationAccuracy <= 50 ? (i18n.language === "ta" ? "மிதமானது" : "Moderate") :
+                               (i18n.language === "ta" ? "குறைவானது" : "Poor")}
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleLocateMe}
+                    disabled={isLocating}
+                    className="inline-flex items-center space-x-1.5 text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer animate-fade-in"
+                  >
+                    <RefreshCcw className={`h-3 w-3 ${isLocating ? 'animate-spin' : ''}`} />
+                    <span>{i18n.language === "ta" ? "ஜிபிஎஸ் புதுப்பி" : "Refresh GPS"}</span>
+                  </button>
+                </div>
+
                 <p className="text-[10px] text-slate-400 mt-2 italic">{t('report.form.location_hint')}</p>
               </div>
             </div>
@@ -788,6 +1070,52 @@ const ReportIssue: React.FC = () => {
           </div>
         </form>
       </div>
+
+      {/* Lightbox Modal for Premium Image Preview */}
+      <AnimatePresence>
+        {isLightboxOpen && preview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-8"
+            onClick={() => setIsLightboxOpen(false)}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsLightboxOpen(false)}
+              className="absolute top-4 right-4 md:top-6 md:right-6 p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors border border-white/10 shadow-lg cursor-pointer z-50"
+              title="Close"
+            >
+              <X className="h-6 w-6" />
+            </button>
+
+            {/* Scale Image */}
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative max-w-4xl max-h-[80vh] rounded-2xl overflow-hidden bg-slate-900 shadow-2xl border border-white/10 flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()} // Prevent click through to backdrop
+            >
+              <img
+                src={preview}
+                alt="Enlarged issue preview"
+                className="max-w-full max-h-[80vh] object-contain"
+              />
+              {/* Optional footer metadata inside lightbox */}
+              <div className="absolute bottom-0 left-0 right-0 bg-slate-900/85 backdrop-blur-sm px-5 py-3 border-t border-white/5 flex items-center justify-between text-white">
+                <span className="text-xs font-bold truncate pr-4">{image?.name || "captured-photo.jpg"}</span>
+                <span className="text-[10px] font-mono text-slate-400 flex-shrink-0 bg-white/10 px-2 py-0.5 rounded uppercase">
+                  {image?.size ? (image.size / 1024).toFixed(1) + " KB" : ""}
+                </span>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -10,16 +10,40 @@ api.interceptors.request.use(
     if (!config.headers) {
       config.headers = {} as any;
     }
+
+    // Helper helper to completely strip Authorization/authorization headers to prevent GFE/Cloud Run 403 blocks
+    const stripAuth = (headersObj: any) => {
+      if (!headersObj) return;
+      if (typeof headersObj.delete === "function") {
+        headersObj.delete("Authorization");
+        headersObj.delete("authorization");
+        headersObj.delete("AUTHORIZATION");
+      }
+      delete headersObj["Authorization"];
+      delete headersObj["authorization"];
+      delete headersObj["AUTHORIZATION"];
+    };
+
+    // Unconditionally strip Authorization from all levels to prevent GFE 403 blocks
+    stripAuth(config.headers);
+    stripAuth(config.headers.common);
+    stripAuth(config.headers.get);
+    stripAuth(config.headers.post);
+    stripAuth(config.headers.put);
+    stripAuth(config.headers.delete);
+
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
         if (user && user.token) {
-          console.log("Setting Authorization header for request to:", config.url);
+          console.log("Setting x-auth-token header for request to:", config.url);
+          
+          // Set our custom API authorization token
           if (typeof config.headers.set === "function") {
-            config.headers.set("Authorization", `Bearer ${user.token}`);
+            config.headers.set("x-auth-token", user.token);
           } else {
-            config.headers["Authorization"] = `Bearer ${user.token}`;
+            config.headers["x-auth-token"] = user.token;
           }
         } else {
           console.warn("No token found in user data from localStorage");

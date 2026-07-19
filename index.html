@@ -4,6 +4,101 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Google AI Studio App</title>
+    <script>
+      (function() {
+        // Force unregister Service Worker and clean CacheStorage on load to bypass stale PWA caching
+        try {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              if (registrations && registrations.length > 0) {
+                registrations.forEach(function(registration) {
+                  registration.unregister().then(function(unregistered) {
+                    if (unregistered) {
+                      console.log('API Gateway Guard: Unregistered active service worker to fetch latest build');
+                      if (!sessionStorage.getItem('sw_reload')) {
+                        sessionStorage.setItem('sw_reload', 'true');
+                        window.location.reload();
+                      }
+                    }
+                  });
+                });
+              }
+            });
+          }
+          if ('caches' in window) {
+            caches.keys().then(function(keys) {
+              keys.forEach(function(key) {
+                caches.delete(key);
+              });
+            });
+          }
+        } catch (e) {
+          console.error('API Gateway Guard: Failed to clean ServiceWorker/Caches', e);
+        }
+
+        // Intercept XMLHttpRequest header setting
+        try {
+          const originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+          XMLHttpRequest.prototype.setRequestHeader = function(header, value) {
+            if (header && header.toLowerCase() === 'authorization') {
+              console.warn('API Gateway Guard: Suppressing injected Authorization header to prevent GFE/Cloud Run 403 blocks');
+              return;
+            }
+            return originalSetRequestHeader.apply(this, arguments);
+          };
+        } catch (e) {
+          console.error('API Gateway Guard: Failed to override setRequestHeader', e);
+        }
+
+        // Intercept window.fetch request headers
+        try {
+          const originalFetch = window.fetch;
+          window.fetch = function(input, init) {
+            if (init && init.headers) {
+              if (init.headers instanceof Headers) {
+                init.headers.delete('Authorization');
+                init.headers.delete('authorization');
+              } else if (Array.isArray(init.headers)) {
+                init.headers = init.headers.filter(h => {
+                  const key = Array.isArray(h) ? h[0] : (h && typeof h === 'object' ? Object.keys(h)[0] : '');
+                  return !key || key.toLowerCase() !== 'authorization';
+                });
+              } else if (typeof init.headers === 'object') {
+                delete init.headers['Authorization'];
+                delete init.headers['authorization'];
+                delete init.headers['AUTHORIZATION'];
+              }
+            }
+            return originalFetch.apply(this, arguments);
+          };
+        } catch (e) {
+          console.error('API Gateway Guard: Failed to override fetch', e);
+        }
+
+        // Intercept Headers prototype
+        try {
+          const originalHeadersAppend = Headers.prototype.append;
+          Headers.prototype.append = function(header, value) {
+            if (header && header.toLowerCase() === 'authorization') {
+              console.warn('API Gateway Guard: Suppressing append of Authorization header');
+              return;
+            }
+            return originalHeadersAppend.apply(this, arguments);
+          };
+
+          const originalHeadersSet = Headers.prototype.set;
+          Headers.prototype.set = function(header, value) {
+            if (header && header.toLowerCase() === 'authorization') {
+              console.warn('API Gateway Guard: Suppressing set of Authorization header');
+              return;
+            }
+            return originalHeadersSet.apply(this, arguments);
+          };
+        } catch (e) {
+          console.error('API Gateway Guard: Failed to override Headers', e);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

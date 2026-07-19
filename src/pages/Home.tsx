@@ -17,6 +17,13 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [votingId, setVotingId] = useState<string | null>(null);
 
+  const [stats, setStats] = useState({
+    resolvedIssues: "1,284",
+    activeCitizens: "5,420",
+    avgResponseTime: "24h",
+    citiesCovered: "12"
+  });
+
   useEffect(() => {
     const fetchRecentIssues = async () => {
       try {
@@ -30,7 +37,23 @@ const Home: React.FC = () => {
         setLoadingIssues(false);
       }
     };
+
+    const fetchStats = async () => {
+      try {
+        const { data } = await api.get("/issues/public-stats");
+        setStats({
+          resolvedIssues: data.resolvedIssues.toLocaleString(),
+          activeCitizens: data.activeCitizens.toLocaleString(),
+          avgResponseTime: data.avgResponseTime,
+          citiesCovered: String(data.citiesCovered)
+        });
+      } catch (error) {
+        console.error("Error fetching public stats:", error);
+      }
+    };
+
     fetchRecentIssues();
+    fetchStats();
   }, []);
 
   const handleVote = async (e: React.MouseEvent, issueId: string) => {
@@ -151,10 +174,10 @@ const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
             {[
-              { label: "Issues Resolved", value: "1,284", icon: CheckCircle, color: "text-green-400" },
-              { label: "Active Citizens", value: "5,420", icon: Users, color: "text-blue-400" },
-              { label: "Avg. Response Time", value: "24h", icon: Clock, color: "text-yellow-400" },
-              { label: "Cities Covered", value: "12", icon: MapPin, color: "text-purple-400" },
+              { label: "Issues Resolved", value: stats.resolvedIssues, icon: CheckCircle, color: "text-green-400" },
+              { label: "Active Citizens", value: stats.activeCitizens, icon: Users, color: "text-blue-400" },
+              { label: "Avg. Response Time", value: stats.avgResponseTime, icon: Clock, color: "text-yellow-400" },
+              { label: "Cities Covered", value: stats.citiesCovered, icon: MapPin, color: "text-purple-400" },
             ].map((stat, i) => (
               <motion.div
                 key={i}

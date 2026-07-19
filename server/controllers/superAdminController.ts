@@ -274,3 +274,4 @@ export const getAuditLogs = async (req: any, res: Response) => {
     res.status(500).json({ message: "Server error fetching audit logs" });
   }
 };
+

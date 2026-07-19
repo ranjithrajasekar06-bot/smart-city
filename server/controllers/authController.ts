@@ -18,7 +18,7 @@ const generateToken = (id: string, email: string, role: string) => {
 // @access  Public
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone, district, taluk, address } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Please provide all required fields" });
@@ -39,6 +39,10 @@ export const registerUser = async (req: Request, res: Response) => {
       email,
       password: hashedPassword,
       role: "citizen",
+      phone: phone || "",
+      district: district || "",
+      taluk: taluk || "",
+      address: address || "",
       isActive: true,
     });
 
@@ -50,6 +54,10 @@ export const registerUser = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        phone: user.phone,
+        district: user.district,
+        taluk: user.taluk,
+        address: user.address,
         isActive: user.isActive,
         latitude: user.latitude,
         longitude: user.longitude,
@@ -117,6 +125,10 @@ export const loginUser = async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
         department: user.department,
+        phone: user.phone,
+        district: user.district,
+        taluk: user.taluk,
+        address: user.address,
         isActive: user.isActive,
         latitude: user.latitude,
         longitude: user.longitude,
@@ -170,6 +182,10 @@ export const getUserProfile = async (req: any, res: Response) => {
         email: user.email,
         role: user.role,
         department: user.department,
+        phone: user.phone,
+        district: user.district,
+        taluk: user.taluk,
+        address: user.address,
         isActive: user.isActive,
         latitude: user.latitude,
         longitude: user.longitude,

@@ -107,28 +107,28 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue, onVote, votingId, onReport
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-yellow-500 text-white shadow-sm">
             <Clock className="h-3 w-3 mr-1.5" />
-            {t('issues.status.pending')}
+            {t('status_val.pending')}
           </span>
         );
       case "in-progress":
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-blue-500 text-white shadow-sm">
             <AlertCircle className="h-3 w-3 mr-1.5" />
-            {t('issues.status.in-progress')}
+            {t('status_val.in-progress')}
           </span>
         );
       case "resolved":
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-green-500 text-white shadow-sm">
             <CheckCircle className="h-3 w-3 mr-1.5" />
-            {t('issues.status.resolved')}
+            {t('status_val.resolved')}
           </span>
         );
       case "rejected":
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-red-500 text-white shadow-sm">
             <AlertCircle className="h-3 w-3 mr-1.5" />
-            {t('issues.status.rejected')}
+            {t('status_val.rejected')}
           </span>
         );
       default:
@@ -194,7 +194,7 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue, onVote, votingId, onReport
         </div>
         <div className="absolute bottom-4 left-4">
           <span className="bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl shadow-sm">
-            {t(`issues.category.${issue.category}`, { defaultValue: issue.category })}
+            {t(`category.${issue.category}`, { defaultValue: issue.category })}
           </span>
         </div>
       </div>

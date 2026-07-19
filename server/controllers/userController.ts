@@ -8,7 +8,12 @@ import { logAudit } from "../utils/auditLogger";
 // @access  Private (Admin)
 export const getUsers = async (req: any, res: Response) => {
   try {
-    const users = await User.find({ role: "citizen" }).select("-password").lean();
+    const filter: any = { role: "citizen" };
+    if (req.user && req.user.role === "taluk_admin") {
+      filter.district = req.user.district;
+      filter.taluk = req.user.taluk;
+    }
+    const users = await User.find(filter).select("-password").lean();
     
     // Compute total reported issues count for each citizen
     const usersWithCounts = await Promise.all(
@@ -95,16 +100,28 @@ export const deleteUser = async (req: any, res: Response) => {
 // @desc    Get detailed civic analytics
 // @route   GET /api/analytics
 // @access  Private (Admin)
-export const getGeneralAnalytics = async (req: Request, res: Response) => {
+export const getGeneralAnalytics = async (req: any, res: Response) => {
   try {
-    const totalIssues = await Issue.countDocuments();
-    const resolvedIssues = await Issue.countDocuments({ status: "resolved" });
-    const pendingIssues = await Issue.countDocuments({ status: "pending" });
-    const inProgressIssues = await Issue.countDocuments({ status: "in-progress" });
-    const rejectedIssues = await Issue.countDocuments({ status: "rejected" });
+    const isTalukAdmin = req.user && req.user.role === "taluk_admin";
+    let filter: any = {};
+    if (isTalukAdmin) {
+      filter = {
+        $or: [
+          { taluk: req.user.taluk, district: req.user.district },
+          { assignedTaluk: req.user.taluk, assignedDistrict: req.user.district }
+        ]
+      };
+    }
+
+    const totalIssues = await Issue.countDocuments(filter);
+    const resolvedIssues = await Issue.countDocuments({ ...filter, status: "resolved" });
+    const pendingIssues = await Issue.countDocuments({ ...filter, status: "pending" });
+    const inProgressIssues = await Issue.countDocuments({ ...filter, status: "in-progress" });
+    const rejectedIssues = await Issue.countDocuments({ ...filter, status: "rejected" });
     
     // Emergency: defined as critical urgency OR category Emergency services
     const emergencyIssues = await Issue.countDocuments({
+      ...filter,
       $or: [
         { urgency: "critical" },
         { keywords: "emergency" },
@@ -112,20 +129,26 @@ export const getGeneralAnalytics = async (req: Request, res: Response) => {
       ]
     });
     
-    const totalCitizens = await User.countDocuments({ role: "citizen" });
+    const totalCitizens = await User.countDocuments({ 
+      role: "citizen",
+      ...(isTalukAdmin ? { district: req.user.district, taluk: req.user.taluk } : {})
+    });
     
     // Category Breakdown
     const categoryStats = await Issue.aggregate([
+      ...(Object.keys(filter).length > 0 ? [{ $match: filter }] : []),
       { $group: { _id: "$category", count: { $sum: 1 } } }
     ]);
     
     // Urgency Breakdown
     const urgencyStats = await Issue.aggregate([
+      ...(Object.keys(filter).length > 0 ? [{ $match: filter }] : []),
       { $group: { _id: "$urgency", count: { $sum: 1 } } }
     ]);
 
     // Severity Breakdown
     const severityStats = await Issue.aggregate([
+      ...(Object.keys(filter).length > 0 ? [{ $match: filter }] : []),
       { $group: { _id: "$severity", count: { $sum: 1 } } }
     ]);
     
@@ -136,7 +159,8 @@ export const getGeneralAnalytics = async (req: Request, res: Response) => {
     const monthlyStats = await Issue.aggregate([
       {
         $match: {
-          createdAt: { $gte: startOfYear }
+          createdAt: { $gte: startOfYear },
+          ...filter
         }
       },
       {

@@ -43,18 +43,67 @@ const issueSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "in-progress", "resolved", "rejected"],
-      default: "pending",
+      enum: ["pending", "submitted", "under-review", "under review", "field-inspection", "repair-scheduled", "in-progress", "in progress", "resolved", "rejected", "emergency"],
+      default: "submitted",
+    },
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high", "critical"],
+      default: "medium",
+    },
+    district: {
+      type: String,
+      default: "",
+    },
+    taluk: {
+      type: String,
+      default: "",
+    },
+    assignedDistrict: {
+      type: String,
+      default: "",
+    },
+    assignedTaluk: {
+      type: String,
+      default: "",
     },
     severity: {
       type: String,
-      enum: ["low", "medium", "high"],
+      enum: ["low", "medium", "high", "critical"],
       default: "medium",
     },
     urgency: {
       type: String,
       enum: ["low", "medium", "high", "critical"],
       default: "medium",
+    },
+    rating: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    rating_comment: {
+      type: String,
+      default: "",
+    },
+    isEscalated: {
+      type: Boolean,
+      default: false,
+    },
+    escalatedAt: {
+      type: Date,
+    },
+    escalationReason: {
+      type: String,
+      default: "",
+    },
+    isFlagged: {
+      type: Boolean,
+      default: false,
+    },
+    flaggedReason: {
+      type: String,
+      default: "",
     },
     keywords: {
       type: [String],

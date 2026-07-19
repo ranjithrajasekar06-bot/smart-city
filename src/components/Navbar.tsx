@@ -82,7 +82,7 @@ const Navbar: React.FC = () => {
                   {t('nav.report')}
                 </Link>
 
-                {user.role === "admin" && (
+                {(user.role === "admin" || user.role === "taluk_admin") && (
                   <Link to="/admin" className="text-slate-600 hover:text-blue-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-all hover:bg-blue-50">
                     <LayoutDashboard className="h-4 w-4 mr-2" />
                     {t('nav.admin')}
@@ -181,7 +181,7 @@ const Navbar: React.FC = () => {
                   <span>{t('nav.report')}</span>
                 </Link>
 
-                {user.role === "admin" && (
+                {(user.role === "admin" || user.role === "taluk_admin") && (
                   <Link
                     to="/admin"
                     onClick={() => setIsMenuOpen(false)}

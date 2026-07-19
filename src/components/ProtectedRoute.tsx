@@ -42,7 +42,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ adminOnly = false, supe
   let allowed = true;
   if (superAdminOnly && user.role !== "super_admin") {
     allowed = false;
-  } else if (adminOnly && user.role !== "admin" && user.role !== "super_admin") {
+  } else if (adminOnly && user.role !== "admin" && user.role !== "super_admin" && user.role !== "taluk_admin") {
     allowed = false;
   }
 

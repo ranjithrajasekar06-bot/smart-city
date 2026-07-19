@@ -238,7 +238,7 @@ const IssueList: React.FC = () => {
       <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-slate-100 mb-8 md:mb-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           <FilterDropdown
-            label={t('issues.category_label')}
+            label={t('report.form.category_label')}
             value={filter.category}
             options={categoryOptions}
             onChange={(val) => setFilter({ ...filter, category: val })}

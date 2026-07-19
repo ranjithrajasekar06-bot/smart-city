@@ -5,8 +5,12 @@ interface User {
   _id: string;
   name: string;
   email: string;
-  role: "citizen" | "admin" | "super_admin";
+  role: "citizen" | "admin" | "super_admin" | "taluk_admin";
   department?: string;
+  phone?: string;
+  district?: string;
+  taluk?: string;
+  address?: string;
   isActive?: boolean;
   token: string;
   createdAt?: string;
@@ -56,9 +60,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   return refreshProfile(retries - 1);
                 }
                 console.error("AuthContext: Error refreshing user profile:", err.response?.data || err.message);
-                // If token is invalid, logout
-                if (err.response?.status === 401) {
-                  console.warn("AuthContext: Token failed, logging out");
+                const isHtmlResponse = typeof err.response?.data === "string" && err.response.data.trim().startsWith("<");
+                // If token is invalid or forbidden, logout to prevent broken state loop (only if it's a real JSON auth response)
+                if ((err.response?.status === 401 || err.response?.status === 403) && !isHtmlResponse) {
+                  console.warn("AuthContext: Profile access failed with authorization error, logging out");
                   logout();
                 }
               }

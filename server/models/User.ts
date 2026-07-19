@@ -4,7 +4,11 @@ export interface IUser extends mongoose.Document {
   name: string;
   email: string;
   password?: string;
-  role: "citizen" | "admin" | "super_admin";
+  role: "citizen" | "taluk_admin" | "super_admin" | "admin";
+  phone?: string;
+  district?: string;
+  taluk?: string;
+  address?: string;
   department?: "Road Maintenance" | "Water Supply" | "Electricity" | "Waste Management" | "Emergency Services" | null;
   isActive: boolean;
   failedLoginAttempts: number;
@@ -40,8 +44,24 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["citizen", "admin", "super_admin"],
+      enum: ["citizen", "taluk_admin", "super_admin", "admin"],
       default: "citizen",
+    },
+    phone: {
+      type: String,
+      default: "",
+    },
+    district: {
+      type: String,
+      default: "",
+    },
+    taluk: {
+      type: String,
+      default: "",
+    },
+    address: {
+      type: String,
+      default: "",
     },
     department: {
       type: String,

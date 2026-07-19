@@ -21,8 +21,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import L from "leaflet";
 
-// Coordinate presets (e.g. city center)
-const CITY_CENTER: [number, number] = [40.7128, -74.0060];
+// Coordinate presets for Tamil Nadu Districts
+const DISTRICT_COORDINATES: { [key: string]: [number, number] } = {
+  Chennai: [13.0827, 80.2707],
+  Coimbatore: [11.0168, 76.9558],
+  Madurai: [9.9252, 78.1198]
+};
 
 interface Issue {
   _id: string;
@@ -38,6 +42,10 @@ interface Issue {
   pin_code: string;
   votes: number;
   createdAt: string;
+  district?: string;
+  taluk?: string;
+  assignedDistrict?: string;
+  assignedTaluk?: string;
   user_id?: {
     _id: string;
     name: string;
@@ -257,6 +265,78 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  // Export current view of filtered issues as CSV file
+  const handleExportCSV = () => {
+    if (filteredIssues.length === 0) {
+      toast.error("No issues to export in the current filtered view.");
+      return;
+    }
+
+    const headers = [
+      "Issue ID",
+      "Title",
+      "Description",
+      "Category",
+      "Status",
+      "Severity",
+      "Urgency",
+      "Location/Address",
+      "Pin Code",
+      "District",
+      "Taluk",
+      "Votes",
+      "Created At",
+      "Reporter Name",
+      "Reporter Email"
+    ];
+
+    const escapeCSVValue = (val: any) => {
+      if (val === null || val === undefined) return "";
+      let str = String(val);
+      str = str.replace(/"/g, '""');
+      if (str.includes(",") || str.includes("\n") || str.includes("\r") || str.includes('"')) {
+        str = `"${str}"`;
+      }
+      return str;
+    };
+
+    const csvRows = [
+      headers.join(","),
+      ...filteredIssues.map((issue: any) => {
+        return [
+          issue._id,
+          issue.title,
+          issue.description,
+          issue.category,
+          issue.status,
+          issue.severity,
+          issue.urgency,
+          issue.issue_location || issue.user_address || "",
+          issue.pin_code || "",
+          issue.district || issue.assignedDistrict || "",
+          issue.taluk || issue.assignedTaluk || "",
+          issue.votes || 0,
+          new Date(issue.createdAt).toLocaleString(),
+          issue.user_id?.name || "Citizen Reporter",
+          issue.user_id?.email || ""
+        ].map(escapeCSVValue).join(",");
+      })
+    ];
+
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    link.setAttribute("download", `reported_issues_${timestamp}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Successfully exported ${filteredIssues.length} issues to CSV.`);
+  };
+
   // Save admin profile changes
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -334,8 +414,9 @@ const AdminDashboard: React.FC = () => {
 
       // Initialize map map if not existing
       if (!mapRef.current) {
+        const centerCoords = DISTRICT_COORDINATES[user?.district || "Chennai"] || [13.0827, 80.2707];
         mapRef.current = L.map(mapContainer.current, {
-          center: CITY_CENTER,
+          center: centerCoords,
           zoom: 12,
           zoomControl: false
         });
@@ -363,7 +444,18 @@ const AdminDashboard: React.FC = () => {
           return "#3B82F6"; // Blue (pending)
         };
 
-        const filtered = issues.filter(i => mapFilterCategory === "all" || i.category === mapFilterCategory);
+        let filtered = issues;
+
+        // Filter based on the logged-in admin's assigned District and Taluk if they are a taluk_admin
+        if (user && user.role === "taluk_admin") {
+          filtered = filtered.filter(i => 
+            (i.district === user.district && i.taluk === user.taluk) ||
+            (i.assignedDistrict === user.district && i.assignedTaluk === user.taluk)
+          );
+        }
+
+        // Apply visual category filter
+        filtered = filtered.filter(i => mapFilterCategory === "all" || i.category === mapFilterCategory);
 
         filtered.forEach(issue => {
           const color = getMarkerColor(issue);
@@ -408,7 +500,7 @@ const AdminDashboard: React.FC = () => {
           mapRef.current.fitBounds(bounds, { padding: [50, 50] });
         }
       }
-    }, [issues, mapFilterCategory]);
+    }, [issues, mapFilterCategory, user]);
 
     // Clean up map onDestroy to prevent memory leaks
     useEffect(() => {
@@ -420,8 +512,16 @@ const AdminDashboard: React.FC = () => {
       };
     }, []);
 
+    // Filter categories based on district & taluk scope
+    const scopedIssues = user && user.role === "taluk_admin"
+      ? issues.filter(i => 
+          (i.district === user.district && i.taluk === user.taluk) ||
+          (i.assignedDistrict === user.district && i.assignedTaluk === user.taluk)
+        )
+      : issues;
+
     // Unique Categories
-    const categories = ["all", ...new Set(issues.map(i => i.category))];
+    const categories = ["all", ...new Set(scopedIssues.map(i => i.category))];
 
     return (
       <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-xl shadow-slate-100/50 flex flex-col h-[70vh] min-h-[500px]">
@@ -852,6 +952,16 @@ const AdminDashboard: React.FC = () => {
                     <option value="votes">Most voted</option>
                     <option value="oldest">Oldest first</option>
                   </select>
+
+                  {/* Export CSV */}
+                  <button
+                    onClick={handleExportCSV}
+                    className="flex items-center gap-1.5 px-3 py-2 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer"
+                    title="Export filtered view as CSV"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Export CSV</span>
+                  </button>
                 </div>
               </div>
 

@@ -38,7 +38,7 @@ const Login: React.FC = () => {
         toast.success(`Welcome back, ${data.name}!`);
         if (data.role === "super_admin") {
           navigate("/superadmin");
-        } else if (data.role === "admin") {
+        } else if (data.role === "admin" || data.role === "taluk_admin") {
           navigate("/admin");
         } else {
           navigate("/");

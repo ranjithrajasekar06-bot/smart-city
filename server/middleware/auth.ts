@@ -10,11 +10,16 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
   let token;
 
   console.log("Auth middleware: Request headers:", JSON.stringify(req.headers));
-  console.log("Auth middleware: Checking authorization header", req.headers.authorization ? "Present" : "Missing");
+  console.log("Auth middleware: Checking authorization & x-auth-token header");
 
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+  if (req.headers["x-auth-token"]) {
+    token = req.headers["x-auth-token"] as string;
+  } else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  if (token) {
     try {
-      token = req.headers.authorization.split(" ")[1];
       console.log("Auth middleware: Token found, verifying...");
       const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "secret");
       const userId = decoded.userId || decoded.id;
@@ -36,13 +41,13 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
   }
 
   if (!token) {
-    console.warn("Auth middleware: No Bearer token found in headers. Authorization header:", req.headers.authorization);
+    console.warn("Auth middleware: No token found in headers.");
     return res.status(401).json({ message: "Not authorized, no token" });
   }
 };
 
 export const admin = (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (req.user && (req.user.role === "admin" || req.user.role === "super_admin")) {
+  if (req.user && (req.user.role === "admin" || req.user.role === "taluk_admin" || req.user.role === "super_admin")) {
     next();
   } else {
     res.status(403).json({ message: "Forbidden - Not authorized as an admin" });

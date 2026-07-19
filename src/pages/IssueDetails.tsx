@@ -20,8 +20,8 @@ interface Issue {
   image_url: string;
   latitude: number;
   longitude: number;
-  status: "pending" | "in-progress" | "resolved" | "rejected";
-  severity: "low" | "medium" | "high";
+  status: string;
+  severity: "low" | "medium" | "high" | "critical";
   urgency: "low" | "medium" | "high" | "critical";
   keywords: string[];
   votes: number;
@@ -29,7 +29,10 @@ interface Issue {
   user_address: string;
   issue_location: string;
   pin_code: string;
+  rating?: number;
+  rating_comment?: string;
   user_id?: {
+    _id?: string;
     name: string;
   };
 }
@@ -43,6 +46,9 @@ const IssueDetails: React.FC = () => {
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [voting, setVoting] = useState(false);
   const [error, setError] = useState("");
+  const [rating, setRating] = useState<number>(5);
+  const [ratingComment, setRatingComment] = useState("");
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
@@ -159,6 +165,23 @@ const IssueDetails: React.FC = () => {
       navigate("/issues");
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to delete issue");
+    }
+  };
+
+  const handleSubmitRating = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingRating(true);
+    try {
+      const { data } = await api.post(`/issues/${id}/rate`, {
+        rating,
+        rating_comment: ratingComment,
+      });
+      setIssue(data);
+      toast.success(t('rating.success') || "Feedback submitted! Thank you.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to submit rating");
+    } finally {
+      setIsSubmittingRating(false);
     }
   };
 
@@ -364,6 +387,97 @@ const IssueDetails: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Citizen Satisfaction Feedback Rating */}
+          {(() => {
+            const isReporter = !!(user && (
+              (typeof issue.user_id === "string" && issue.user_id === user._id) ||
+              (typeof issue.user_id === "object" && issue.user_id !== null && ((issue.user_id as any)._id === user._id || (issue.user_id as any)._id === user?.toString())) ||
+              (issue as any).user_id?._id === user._id
+            ));
+
+            return issue.status === "resolved" ? (
+              <div className="bg-gradient-to-[135deg] from-green-50/70 to-emerald-50/70 border border-green-200/60 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm overflow-hidden">
+                <h3 className="text-xl md:text-2xl font-black text-slate-900 mb-2 flex items-center">
+                  <CheckCircle className="h-6 w-6 mr-2 md:mr-3 text-green-600" />
+                  {t('rating.title', { defaultValue: 'Citizen Satisfaction Feedback' })}
+                </h3>
+                <p className="text-slate-500 text-xs md:text-sm font-bold mb-6 uppercase tracking-wider">
+                  {t('rating.subtitle', { defaultValue: 'TAMIL NADU SMART GOVERNANCE RESOLUTION SATISFACTION (மக்கள் திருப்தி மதிப்பீடு)' })}
+                </p>
+
+                {issue.rating ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">{t('rating.score_label', { defaultValue: 'Citizen Rating' })}:</span>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <span
+                          key={star}
+                          className={`text-2xl md:text-3xl ${
+                            star <= (issue.rating ?? 0) ? "text-amber-400 font-bold" : "text-slate-200"
+                          }`}
+                        >
+                          ★
+                        </span>
+                      ))}
+                      <span className="ml-3 font-semibold text-sm text-slate-700 bg-white px-3 py-1 rounded-full border border-slate-100">
+                        {issue.rating}/5
+                      </span>
+                    </div>
+                    {issue.rating_comment && (
+                      <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-3xl border border-green-100 italic font-medium text-slate-600 text-sm md:text-base">
+                        "{issue.rating_comment}"
+                      </div>
+                    )}
+                  </div>
+                ) : isReporter ? (
+                  <form onSubmit={handleSubmitRating} className="space-y-5">
+                    <div className="flex flex-col space-y-2">
+                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('rating.select_stars', { defaultValue: 'Choose Rating Stars (நட்சத்திரங்கள்)' })}</span>
+                      <div className="flex space-x-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            type="button"
+                            key={star}
+                            onClick={() => setRating(star)}
+                            className={`text-3xl md:text-4xl transition-all hover:scale-125 focus:outline-none cursor-pointer ${
+                              star <= rating ? "text-amber-400 font-bold" : "text-slate-300"
+                            }`}
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col space-y-2">
+                      <label htmlFor="ratingComment" className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                        {t('rating.comment_label', { defaultValue: 'Satisfaction Comments (நிறை/குறை கருத்துகள்)' })}
+                      </label>
+                      <textarea
+                        id="ratingComment"
+                        rows={3}
+                        value={ratingComment}
+                        onChange={(e) => setRatingComment(e.target.value)}
+                        placeholder={t('rating.comment_placeholder', { defaultValue: 'How was the resolution speed and quality? Tell us...' })}
+                        className="w-full px-4 py-3 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500 rounded-xl md:rounded-2xl bg-white text-slate-700 font-medium text-sm resize-none"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingRating}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-black text-xs md:text-sm uppercase tracking-widest px-6 py-4 rounded-xl md:rounded-2xl transition-all shadow-lg shadow-green-200 active:scale-95 disabled:opacity-50"
+                    >
+                      {isSubmittingRating ? t('submitting') : t('submit')}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="text-slate-500 italic text-sm font-medium bg-white/60 p-4 rounded-2xl border border-slate-100">
+                    {t('rating.awaiting_citizen', { defaultValue: 'Awaiting satisfaction rating from the citizen reporter.' })}
+                  </div>
+                )}
+              </div>
+            ) : null;
+          })()}
 
           {/* Admin Controls */}
           {(user?.role === "admin" || user?.role === "super_admin") && (

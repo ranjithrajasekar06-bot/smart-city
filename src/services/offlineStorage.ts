@@ -17,6 +17,8 @@ export interface OfflineReport {
   severity: string;
   urgency: string;
   keywords: string[];
+  district?: string;
+  taluk?: string;
   imageBlob: Blob;
   imageName: string;
   timestamp: number;

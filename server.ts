@@ -10,6 +10,8 @@ import authRoutes from "./server/routes/authRoutes";
 import issueRoutes from "./server/routes/issueRoutes";
 import superAdminRoutes from "./server/routes/superAdminRoutes";
 import userRoutes from "./server/routes/userRoutes";
+import districtRoutes from "./server/routes/districtRoutes";
+import talukAdminRoutes from "./server/routes/talukAdminRoutes";
 import setupSuperAdmin from "./server/config/setupSuperAdmin";
 import mongoose from "mongoose";
 
@@ -55,6 +57,19 @@ async function startServer() {
   app.use(cors());
   app.use(express.json());
 
+  // Log incoming API request headers to verify gateway and authorization behavior
+  app.use((req, res, next) => {
+    if (req.originalUrl.startsWith("/api")) {
+      const logEntry = `[${new Date().toISOString()}] ${req.method} ${req.originalUrl}\nHeaders: ${JSON.stringify(req.headers, null, 2)}\n\n`;
+      try {
+        fs.appendFileSync(path.resolve(process.cwd(), "server-requests.log"), logEntry);
+      } catch (err) {
+        console.error("Failed to write to requests log", err);
+      }
+    }
+    next();
+  });
+
   // Database connection check middleware
   app.use((req, res, next) => {
     if (req.originalUrl.startsWith("/api") && req.originalUrl !== "/api/health") {
@@ -74,6 +89,8 @@ async function startServer() {
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/superadmin", superAdminRoutes);
   app.use("/api/users", userRoutes);
+  app.use("/api/districts", districtRoutes);
+  app.use("/api/taluk-admin", talukAdminRoutes);
   app.use("/api/analytics", userRoutes);
 
   app.get("/api/health", (req, res) => {

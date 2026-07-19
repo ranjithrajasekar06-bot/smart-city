@@ -62,6 +62,8 @@ const SyncManager: React.FC = () => {
         formData.append('severity', report.severity);
         formData.append('urgency', report.urgency);
         formData.append('keywords', JSON.stringify(report.keywords));
+        if (report.district) formData.append('district', report.district);
+        if (report.taluk) formData.append('taluk', report.taluk);
         
         // Convert Blob back to File
         const file = new File([report.imageBlob], report.imageName, { type: report.imageBlob.type });
